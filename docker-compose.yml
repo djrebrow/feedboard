@@ -1,0 +1,12 @@
+services:
+  feedboard:
+    build: .
+    container_name: feedboard
+    ports:
+      - "8321:8321"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TZ=Europe/Berlin
+      - FETCH_INTERVAL_MINUTES=30
+    restart: unless-stopped
