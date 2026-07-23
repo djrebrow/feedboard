@@ -51,6 +51,63 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_articles_feed    ON articles(feed_id, published_at DESC);
 `);
 
+// Migrationen für bestehende Datenbanken ------------------------------------
+function ensureColumn(table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
+// Logo als eingebettetes Bild (data:-URI) direkt in der Rubrik
+ensureColumn('categories', 'logo', 'TEXT');
+// Anker/Slug für den URL-Anker (#/<slug>)
+ensureColumn('categories', 'slug', 'TEXT');
+// Vorschaubild eines Artikels (URL aus dem RSS-Eintrag)
+ensureColumn('articles', 'image_url', 'TEXT');
+// Feed-Typ: 'rss' (Standard) oder 'telegram'
+ensureColumn('feeds', 'type', 'TEXT');
+
+// ---------------------------------------------------------------------------
+// Slug-Erzeugung (de/ru-Transliteration → URL-tauglicher Anker)
+// ---------------------------------------------------------------------------
+
+const TRANSLIT = {
+  ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss',
+  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'zh', з: 'z',
+  и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r',
+  с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch',
+  ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya',
+};
+
+function slugify(text) {
+  let out = '';
+  for (const ch of String(text ?? '').toLowerCase()) {
+    out += TRANSLIT[ch] !== undefined ? TRANSLIT[ch] : ch;
+  }
+  out = out.normalize('NFKD').replace(/[̀-ͯ]/g, '');
+  out = out.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return out;
+}
+
+function uniqueSlug(base, excludeId = null) {
+  let slug = slugify(base) || 'rubrik';
+  const rows = excludeId
+    ? db.prepare('SELECT slug FROM categories WHERE id != ?').all(excludeId)
+    : db.prepare('SELECT slug FROM categories').all();
+  const taken = new Set(rows.map((r) => r.slug).filter(Boolean));
+  if (!taken.has(slug)) return slug;
+  for (let i = 2; ; i += 1) {
+    const candidate = `${slug}-${i}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+}
+
+// Bestehende Rubriken ohne Slug nachrüsten
+for (const row of db.prepare("SELECT id, name FROM categories WHERE slug IS NULL OR slug = ''").all()) {
+  db.prepare('UPDATE categories SET slug = ? WHERE id = ?').run(uniqueSlug(row.name, row.id), row.id);
+}
+
 // ---------------------------------------------------------------------------
 // Rubriken (categories)
 // ---------------------------------------------------------------------------
@@ -63,18 +120,30 @@ function getCategory(id) {
   return db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
 }
 
-function createCategory(name) {
+function getCategoryBySlug(slug) {
+  return db.prepare('SELECT * FROM categories WHERE slug = ?').get(slug);
+}
+
+function createCategory(name, slug) {
   const { maxPos } = db
     .prepare('SELECT COALESCE(MAX(position), -1) AS maxPos FROM categories')
     .get();
+  const finalSlug = uniqueSlug(slug || name);
   const result = db
-    .prepare('INSERT INTO categories (name, position) VALUES (?, ?)')
-    .run(name, Number(maxPos) + 1);
+    .prepare('INSERT INTO categories (name, slug, position) VALUES (?, ?, ?)')
+    .run(name, finalSlug, Number(maxPos) + 1);
   return getCategory(Number(result.lastInsertRowid));
 }
 
-function renameCategory(id, name) {
-  db.prepare('UPDATE categories SET name = ? WHERE id = ?').run(name, id);
+function renameCategory(id, name, slug) {
+  // Expliziter Anker hat Vorrang, sonst wird er aus dem Namen abgeleitet
+  const finalSlug = uniqueSlug(slug || name, id);
+  db.prepare('UPDATE categories SET name = ?, slug = ? WHERE id = ?').run(name, finalSlug, id);
+  return getCategory(id);
+}
+
+function setCategoryLogo(id, logo) {
+  db.prepare('UPDATE categories SET logo = ? WHERE id = ?').run(logo ?? null, id);
   return getCategory(id);
 }
 
@@ -110,13 +179,13 @@ function findSimilarFeed(name, siteUrl) {
     .get(siteUrl, name);
 }
 
-function createFeed({ categoryId, name, rssUrl, siteUrl }) {
+function createFeed({ categoryId, name, rssUrl, siteUrl, type }) {
   const { maxPos } = db
     .prepare('SELECT COALESCE(MAX(position), -1) AS maxPos FROM feeds WHERE category_id = ?')
     .get(categoryId);
   const result = db
-    .prepare('INSERT INTO feeds (category_id, name, rss_url, site_url, position) VALUES (?, ?, ?, ?, ?)')
-    .run(categoryId, name, rssUrl, siteUrl ?? null, Number(maxPos) + 1);
+    .prepare('INSERT INTO feeds (category_id, name, rss_url, site_url, position, type) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(categoryId, name, rssUrl, siteUrl ?? null, Number(maxPos) + 1, type || 'rss');
   return getFeed(Number(result.lastInsertRowid));
 }
 
@@ -147,16 +216,17 @@ function markFeedError(id, message) {
 // Artikel
 // ---------------------------------------------------------------------------
 
-function upsertArticle({ feedId, guid, title, link, summary, publishedAt }) {
+function upsertArticle({ feedId, guid, title, link, summary, imageUrl, publishedAt }) {
   db.prepare(`
-    INSERT INTO articles (feed_id, guid, title, link, summary, published_at)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO articles (feed_id, guid, title, link, summary, image_url, published_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT (feed_id, guid) DO UPDATE SET
       title        = excluded.title,
       link         = excluded.link,
       summary      = excluded.summary,
+      image_url    = COALESCE(excluded.image_url, articles.image_url),
       published_at = COALESCE(excluded.published_at, articles.published_at)
-  `).run(feedId, guid, title, link ?? null, summary ?? null, publishedAt ?? null);
+  `).run(feedId, guid, title, link ?? null, summary ?? null, imageUrl ?? null, publishedAt ?? null);
 }
 
 function pruneArticles(feedId, keep = 30) {
@@ -174,7 +244,7 @@ function pruneArticles(feedId, keep = 30) {
 
 function getArticlesForBoard(limitPerFeed = 30) {
   return db.prepare(`
-    SELECT id, feed_id, guid, title, link, summary, published_at, fetched_at
+    SELECT id, feed_id, guid, title, link, summary, image_url, published_at, fetched_at
     FROM (
       SELECT a.*,
              ROW_NUMBER() OVER (
@@ -204,6 +274,7 @@ function getBoard() {
       title: article.title,
       link: article.link,
       summary: article.summary,
+      image: article.image_url || null,
       published_at: article.published_at,
       fetched_at: article.fetched_at,
     });
@@ -215,6 +286,7 @@ function getBoard() {
     feedsByCategory.get(feed.category_id).push({
       id: feed.id,
       name: feed.name,
+      type: feed.type || 'rss',
       rss_url: feed.rss_url,
       site_url: feed.site_url,
       last_fetched_at: feed.last_fetched_at,
@@ -227,6 +299,8 @@ function getBoard() {
     categories: categories.map((category) => ({
       id: category.id,
       name: category.name,
+      slug: category.slug || null,
+      logo: category.logo || null,
       feeds: feedsByCategory.get(category.id) || [],
     })),
   };
@@ -269,8 +343,11 @@ module.exports = {
   db,
   getCategories,
   getCategory,
+  getCategoryBySlug,
+  slugify,
   createCategory,
   renameCategory,
+  setCategoryLogo,
   deleteCategory,
   reorderCategories,
   getFeeds,

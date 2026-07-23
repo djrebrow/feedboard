@@ -134,7 +134,32 @@ input[type='url']:focus {
    Toolbar
    ========================================================================== */
 
-.toolbar { display: flex; gap: 8px; }
+.toolbar { display: flex; gap: 8px; align-items: center; }
+
+/* ---- Sprachschalter DE / RU ---- */
+.lang-switch {
+  display: inline-flex;
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 2px;
+  margin-right: 2px;
+}
+
+.lang-btn {
+  background: none;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.lang-btn:hover { color: var(--accent); }
+.lang-btn.active { background: var(--accent); color: var(--accent-ink); }
 
 .tool-btn {
   display: inline-flex;
@@ -187,7 +212,35 @@ html:not([data-theme='dark']) .icon-moon { display: none; }
 
 .edit-bar-hint { font-size: 13px; color: var(--muted); }
 
-.inline-form { display: flex; gap: 8px; flex-wrap: wrap; }
+.inline-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: stretch; }
+
+/* Anker-/Slug-Feld mit vorangestelltem #/ */
+.slug-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 0 8px 0 10px;
+}
+
+.slug-affix {
+  color: var(--faint);
+  font-size: 13px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.slug-field input {
+  border: none;
+  background: none;
+  padding: 7px 2px;
+  width: 140px;
+}
+
+.slug-field input:focus { box-shadow: none; }
+.slug-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 .btn {
   border: 1px solid var(--line-strong);
@@ -243,6 +296,203 @@ html:not([data-theme='dark']) .icon-moon { display: none; }
   .edit-bar-inner { padding: 10px 14px; }
   .tool-label { display: none; }
   .tool-btn { padding: 8px 10px; }
+}
+
+/* Detailansicht einer Rubrik: breiter Bereich, Feeds im Raster */
+.board.board--detail {
+  display: block;
+  max-width: 1500px;
+}
+
+/* ---- Rubrik-Kachel (Startseite), zentriert mit optionalem Logo ---- */
+
+.category-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 150px;
+  padding: 24px 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  animation: card-in 0.45s cubic-bezier(0.22, 0.9, 0.3, 1) both;
+}
+
+.category-tile:hover {
+  transform: translateY(-2px);
+  border-color: var(--line-strong);
+  box-shadow: 0 1px 2px rgba(38, 30, 18, 0.05), 0 14px 34px -16px rgba(38, 30, 18, 0.34);
+}
+
+.category-tile-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.category-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 50%;
+  background: var(--surface-raised);
+}
+
+.category-tile-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 22px;
+  line-height: 1.15;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.category-tile-count {
+  font-size: 11.5px;
+  color: var(--faint);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.category-tile .category-tools {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+body.edit-mode .category-tile {
+  cursor: default;
+  outline: 1.5px dashed var(--line-strong);
+  outline-offset: 3px;
+}
+
+body.edit-mode .category-tile:hover {
+  transform: none;
+}
+
+/* ---- Bearbeiten-Panel einer Rubrik ---- */
+
+.category-tile.editing {
+  cursor: default;
+  outline: none;
+  text-align: left;
+  align-items: stretch;
+  padding: 16px;
+}
+
+body.edit-mode .category-tile.editing:hover { transform: none; box-shadow: var(--shadow); }
+
+.category-edit { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+
+.edit-field { display: flex; flex-direction: column; gap: 5px; }
+
+.edit-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.category-edit input[type='text'] { width: 100%; }
+.category-edit .slug-field { width: 100%; }
+.category-edit .slug-field input { flex: 1; width: auto; }
+
+.edit-logo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.edit-logo-preview { width: 48px; height: 48px; }
+
+.edit-logo-empty {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px dashed var(--line-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--faint);
+  flex-shrink: 0;
+}
+
+.edit-actions { display: flex; gap: 8px; margin-top: 2px; }
+
+.btn-danger-outline {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: none;
+}
+.btn-danger-outline:hover { background: var(--accent-soft); }
+
+/* ---- Detailansicht: Rubrik als schlichter Rahmen, Feeds als Karten ---- */
+
+.category.category-open {
+  background: none;
+  border: none;
+  box-shadow: none;
+  overflow: visible;
+  animation: none;
+}
+
+.category-open .category-header {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.feeds-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  padding: 20px 0;
+  align-items: start;
+}
+
+.feeds-grid .feed {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+@media (max-width: 1100px) {
+  .feeds-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .feeds-grid { grid-template-columns: 1fr; }
+}
+
+/* ---- Zurück-Button in der Detailansicht ---- */
+
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 7px;
+  margin-right: 4px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-back:hover {
+  color: var(--ink);
+  background: var(--accent-soft);
+  border-color: var(--line);
 }
 
 /* ---- Rubrik-Karte ---- */
@@ -469,6 +719,14 @@ body.edit-mode .feed-tools { display: flex; }
 
 body.edit-mode .feed-add { display: block; }
 
+/* In der breiten Detailansicht das Hinzufügen-Formular als eigene Karte oben */
+.category-open .feed-add {
+  max-width: 520px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin: 16px 0 4px;
+}
+
 .feed-add-form { display: flex; flex-direction: column; gap: 7px; }
 .feed-add-form input { width: 100%; }
 
@@ -502,6 +760,44 @@ body.edit-mode .feed-add { display: block; }
 }
 
 .board-empty p { margin: 0 0 22px; }
+
+/* ==========================================================================
+   Artikel-Vorschau (Hover)
+   ========================================================================== */
+
+.article-preview {
+  position: fixed;
+  z-index: 1000;
+  width: max-content;
+  max-width: 320px;
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px -8px rgba(38, 30, 18, 0.4);
+  overflow: hidden;
+  pointer-events: none;
+  animation: preview-in 0.12s ease-out;
+}
+
+@keyframes preview-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.article-preview-img {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  background: var(--surface);
+}
+
+.article-preview-text {
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
 
 /* ==========================================================================
    Toast

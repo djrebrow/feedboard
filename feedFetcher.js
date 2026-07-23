@@ -3,6 +3,7 @@
 
 const Parser = require('rss-parser');
 const store = require('./db');
+const telegram = require('./telegram');
 
 const FETCH_TIMEOUT_MS = 15000;
 const SUMMARY_MAX_CHARS = 400;
@@ -17,7 +18,11 @@ const parser = new Parser({
     Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
   },
   customFields: {
-    item: [['content:encoded', 'contentEncoded']],
+    item: [
+      ['content:encoded', 'contentEncoded'],
+      ['media:content', 'mediaContent', { keepArray: true }],
+      ['media:thumbnail', 'mediaThumbnail', { keepArray: true }],
+    ],
   },
 });
 
@@ -95,6 +100,53 @@ function buildSummary(item) {
   return truncateAtWord(clean, SUMMARY_MAX_CHARS);
 }
 
+function sanitizeImageUrl(url) {
+  if (!url) return null;
+  const clean = decodeEntities(String(url).trim());
+  if (!/^https?:\/\//i.test(clean) || clean.length > 1000) return null;
+  return clean;
+}
+
+function pickMediaUrl(node) {
+  if (!node) return null;
+  const list = Array.isArray(node) ? node : [node];
+  for (const entry of list) {
+    const attrs = entry && entry.$ ? entry.$ : entry;
+    if (!attrs) continue;
+    const url = attrs.url || attrs.href;
+    if (!url) continue;
+    if (attrs.medium && attrs.medium !== 'image') continue;
+    if (attrs.type && !/^image\//i.test(attrs.type)) continue;
+    const clean = sanitizeImageUrl(url);
+    if (clean) return clean;
+  }
+  return null;
+}
+
+// Vorschaubild aus dem RSS-Eintrag ziehen (kein zusätzlicher Seitenabruf)
+function extractImage(item) {
+  // 1) enclosure (nur wenn Bild-Typ oder Bild-Endung)
+  const enc = item.enclosure;
+  if (enc && enc.url) {
+    const isImage = /^image\//i.test(enc.type || '') || /\.(jpe?g|png|gif|webp|avif)(\?|#|$)/i.test(enc.url);
+    if (isImage) {
+      const clean = sanitizeImageUrl(enc.url);
+      if (clean) return clean;
+    }
+  }
+  // 2) media:content / media:thumbnail
+  return (
+    pickMediaUrl(item.mediaContent) ||
+    pickMediaUrl(item.mediaThumbnail) ||
+    // 3) erstes <img> im Inhalt
+    (() => {
+      const html = item.contentEncoded || item['content:encoded'] || item.content || item.summary || '';
+      const match = String(html).match(/<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i);
+      return match ? sanitizeImageUrl(match[1]) : null;
+    })()
+  );
+}
+
 function toIsoDate(item) {
   const raw = item.isoDate || item.pubDate;
   if (!raw) return null;
@@ -114,7 +166,50 @@ function buildGuid(item) {
 // Einen Feed laden und Artikel speichern
 // ---------------------------------------------------------------------------
 
+// Telegram-Nachrichten als Artikel speichern (erste Zeile = Überschrift, voller Text = Kurzfassung)
+function saveTelegramMessages(feedId, messages) {
+  for (const msg of messages) {
+    const fullText = (msg.text || '').trim();
+    const firstLine = fullText.split('\n').find((line) => line.trim()) || '';
+    const title = truncateAtWord(firstLine, 140) || (msg.photo ? '🖼' : '(ohne Text)');
+
+    const hasMore = fullText.includes('\n') || firstLine.length > 140;
+    const summary = hasMore ? truncateAtWord(fullText, SUMMARY_MAX_CHARS) : null;
+
+    store.upsertArticle({
+      feedId,
+      guid: msg.url || `${feedId}:${msg.createdAt || ''}`,
+      title,
+      link: msg.url || null,
+      summary,
+      imageUrl: msg.photo || null,
+      publishedAt: msg.createdAt,
+    });
+  }
+}
+
+async function fetchTelegramFeed(feed) {
+  try {
+    const channel =
+      telegram.channelFromWebviewUrl(feed.rss_url) ||
+      telegram.detectTelegramChannel(feed.site_url) ||
+      telegram.detectTelegramChannel(feed.rss_url);
+    if (!channel) throw new Error('Telegram-Kanal konnte nicht ermittelt werden.');
+
+    const data = await telegram.fetchTelegramChannel(channel);
+    saveTelegramMessages(feed.id, data.messages);
+    store.pruneArticles(feed.id, KEEP_ARTICLES_PER_FEED);
+    store.markFeedFetched(feed.id);
+    return { feedId: feed.id, ok: true, items: data.messages.length };
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    store.markFeedError(feed.id, message);
+    return { feedId: feed.id, ok: false, error: message };
+  }
+}
+
 async function fetchFeed(feed) {
+  if (feed.type === 'telegram') return fetchTelegramFeed(feed);
   try {
     const parsed = await parser.parseURL(feed.rss_url);
     const items = (parsed.items || []).slice(0, KEEP_ARTICLES_PER_FEED);
@@ -127,6 +222,7 @@ async function fetchFeed(feed) {
         title,
         link: item.link || null,
         summary: buildSummary(item),
+        imageUrl: extractImage(item),
         publishedAt: toIsoDate(item),
       });
     }
@@ -280,9 +376,33 @@ async function discoverFeed(inputUrl) {
 // Feed anlegen: Discovery + Validierung + erste Artikel speichern
 // ---------------------------------------------------------------------------
 
+async function addTelegramFeed({ categoryId, channel, name }) {
+  const data = await telegram.fetchTelegramChannel(channel);
+  if (!data.messages.length) {
+    throw new Error('Kein öffentlicher Telegram-Kanal oder keine Nachrichten gefunden.');
+  }
+
+  const rssUrl = telegram.channelWebviewUrl(channel);
+  const siteUrl = `https://t.me/${channel}`;
+  const feedName = (name && String(name).trim()) || data.title || `@${channel}`;
+
+  const existing = store.getFeedByUrl(rssUrl);
+  if (existing) throw new Error(`Dieser Kanal ist bereits vorhanden („${existing.name}“).`);
+
+  const feed = store.createFeed({ categoryId, name: feedName, rssUrl, siteUrl, type: 'telegram' });
+  saveTelegramMessages(feed.id, data.messages);
+  store.pruneArticles(feed.id, KEEP_ARTICLES_PER_FEED);
+  store.markFeedFetched(feed.id);
+  return store.getFeed(feed.id);
+}
+
 async function addFeed({ categoryId, url, name }) {
   const category = store.getCategory(categoryId);
   if (!category) throw new Error('Rubrik nicht gefunden.');
+
+  // Telegram-Kanal? (t.me/kanal, @kanal, …) — dann keine RSS-Suche
+  const channel = telegram.detectTelegramChannel(url);
+  if (channel) return addTelegramFeed({ categoryId, channel, name });
 
   const { rssUrl, parsed } = await discoverFeed(url);
 
@@ -314,6 +434,7 @@ async function addFeed({ categoryId, url, name }) {
       title,
       link: item.link || null,
       summary: buildSummary(item),
+      imageUrl: extractImage(item),
       publishedAt: toIsoDate(item),
     });
   }

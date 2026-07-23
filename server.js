@@ -2,6 +2,7 @@
 'use strict';
 
 const path = require('node:path');
+const fs = require('node:fs');
 const express = require('express');
 const cron = require('node-cron');
 
@@ -18,8 +19,38 @@ function clampInterval(value, fallback) {
 }
 
 const app = express();
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json({ limit: '3mb' })); // Logos werden als data:-URI übertragen
+
+const LOGO_MAX_LENGTH = 1_500_000; // ~1,1 MB Bilddaten als data:-URI
+
+// ---------------------------------------------------------------------------
+// index.html mit versionierten Asset-URLs ausliefern (Cache-Busting)
+// ---------------------------------------------------------------------------
+
+const PUBLIC_DIR = path.join(__dirname, 'public');
+
+function assetVersion() {
+  try {
+    const mtimes = ['app.js', 'style.css', 'index.html']
+      .map((f) => fs.statSync(path.join(PUBLIC_DIR, f)).mtimeMs);
+    return String(Math.round(Math.max(...mtimes)));
+  } catch {
+    return String(Date.now());
+  }
+}
+
+const ASSET_VERSION = assetVersion();
+
+app.get(['/', '/index.html'], (req, res) => {
+  let html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+  html = html
+    .replace('href="style.css"', `href="style.css?v=${ASSET_VERSION}"`)
+    .replace('src="app.js"', `src="app.js?v=${ASSET_VERSION}"`);
+  res.set('Cache-Control', 'no-cache');
+  res.type('html').send(html);
+});
+
+app.use(express.static(PUBLIC_DIR));
 
 // ---------------------------------------------------------------------------
 // Hilfsfunktionen
@@ -67,7 +98,8 @@ app.post('/api/categories', asyncHandler(async (req, res) => {
   const name = String(req.body?.name || '').trim();
   if (!name) throw new Error('Bitte einen Namen für die Rubrik angeben.');
   if (name.length > 80) throw new Error('Der Rubrikname ist zu lang (max. 80 Zeichen).');
-  res.status(201).json(store.createCategory(name));
+  const slug = req.body?.slug != null ? String(req.body.slug).trim() : '';
+  res.status(201).json(store.createCategory(name, slug));
 }));
 
 app.patch('/api/categories/:id', asyncHandler(async (req, res) => {
@@ -76,7 +108,27 @@ app.patch('/api/categories/:id', asyncHandler(async (req, res) => {
   const name = String(req.body?.name || '').trim();
   if (!name) throw new Error('Bitte einen Namen für die Rubrik angeben.');
   if (name.length > 80) throw new Error('Der Rubrikname ist zu lang (max. 80 Zeichen).');
-  res.json(store.renameCategory(id, name));
+  const slug = req.body?.slug != null ? String(req.body.slug).trim() : '';
+  res.json(store.renameCategory(id, name, slug));
+}));
+
+app.put('/api/categories/:id/logo', asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!store.getCategory(id)) throw new Error('Rubrik nicht gefunden.');
+  const logo = String(req.body?.logo || '');
+  if (!/^data:image\/(png|jpeg|webp|gif|svg\+xml);/i.test(logo)) {
+    throw new Error('Ungültiges Bildformat.');
+  }
+  if (logo.length > LOGO_MAX_LENGTH) {
+    throw new Error('Das Bild ist zu groß.');
+  }
+  res.json(store.setCategoryLogo(id, logo));
+}));
+
+app.delete('/api/categories/:id/logo', asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!store.getCategory(id)) throw new Error('Rubrik nicht gefunden.');
+  res.json(store.setCategoryLogo(id, null));
 }));
 
 app.delete('/api/categories/:id', asyncHandler(async (req, res) => {
