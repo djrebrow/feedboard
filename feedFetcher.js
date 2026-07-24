@@ -263,11 +263,13 @@ async function refreshAllFeeds() {
   if (refreshInProgress) return { skipped: true };
   refreshInProgress = true;
   try {
-    const feeds = store.getFeeds();
+    // Pausierte Feeds (von Hand oder nach zu vielen Fehlern) bleiben außen vor
+    const feeds = store.getEnabledFeeds();
+    const paused = store.getFeeds().length - feeds.length;
     const results = await mapLimit(feeds, CONCURRENCY, fetchFeed);
     const ok = results.filter((r) => r.ok).length;
     const failed = results.length - ok;
-    return { skipped: false, total: results.length, ok, failed };
+    return { skipped: false, total: results.length, ok, failed, paused };
   } finally {
     refreshInProgress = false;
   }

@@ -8,6 +8,11 @@ const cron = require('node-cron');
 
 const store = require('./db');
 const fetcher = require('./feedFetcher');
+const opml = require('./opml');
+const auth = require('./auth');
+const extract = require('./extract');
+const ai = require('./ai');
+const telegram = require('./telegram');
 
 const PORT = Number(process.env.PORT) || 8321;
 const FETCH_INTERVAL_MINUTES = clampInterval(process.env.FETCH_INTERVAL_MINUTES, 30);
@@ -21,13 +26,45 @@ function clampInterval(value, fallback) {
 const app = express();
 app.use(express.json({ limit: '3mb' })); // Logos werden als data:-URI übertragen
 
+// Nur die Wiederherstellung darf groß sein — eine Sicherung enthält alle Artikel
+const restoreBodyParser = express.json({ limit: '64mb' });
+
 const LOGO_MAX_LENGTH = 1_500_000; // ~1,1 MB Bilddaten als data:-URI
+
+const PUBLIC_DIR = path.join(__dirname, 'public');
+
+// ---------------------------------------------------------------------------
+// Zugangsschutz (nur aktiv, wenn FEEDBOARD_PASSWORD gesetzt ist)
+// ---------------------------------------------------------------------------
+
+app.set('trust proxy', true); // damit req.ip hinter einem Reverse Proxy stimmt
+
+app.post('/api/login', (req, res) => {
+  try {
+    auth.login(req, res, String(req.body?.password || ''));
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(401).json({ error: error.message });
+  }
+});
+
+app.post('/api/logout', (req, res) => {
+  auth.logout(res);
+  res.json({ ok: true });
+});
+
+// Muss vor der Auslieferung von index.html und public/ stehen
+app.use(auth.middleware);
+
+app.get('/login', (req, res) => {
+  if (!auth.isEnabled() || auth.isLoggedIn(req)) return res.redirect('/');
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(fs.readFileSync(path.join(PUBLIC_DIR, 'login.html'), 'utf8'));
+});
 
 // ---------------------------------------------------------------------------
 // index.html mit versionierten Asset-URLs ausliefern (Cache-Busting)
 // ---------------------------------------------------------------------------
-
-const PUBLIC_DIR = path.join(__dirname, 'public');
 
 function assetVersion() {
   try {
@@ -90,11 +127,22 @@ function requireIdArray(value) {
 // API: Board
 // ---------------------------------------------------------------------------
 
+// Welche optionalen Funktionen eingerichtet sind — das Frontend blendet die
+// zugehörigen Knöpfe aus, wenn etwas fehlt.
+function features() {
+  return {
+    ai: ai.isEnabled(),
+    telegram_share: telegram.canShare(),
+    auth: auth.isEnabled(),
+  };
+}
+
 app.get('/api/board', (req, res) => {
   res.json({
     ...store.getBoard(),
     refreshing: fetcher.isRefreshing(),
     fetch_interval_minutes: FETCH_INTERVAL_MINUTES,
+    features: features(),
   });
 });
 
@@ -178,10 +226,18 @@ app.post('/api/feeds', asyncHandler(async (req, res) => {
 app.patch('/api/feeds/:id', asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
   if (!store.getFeed(id)) throw new Error('Feed nicht gefunden.');
-  const name = String(req.body?.name || '').trim();
-  if (!name) throw new Error('Bitte einen Namen für den Feed angeben.');
-  if (name.length > 120) throw new Error('Der Feed-Name ist zu lang (max. 120 Zeichen).');
-  res.json(store.renameFeed(id, name));
+
+  // Pausieren/Fortsetzen kann allein oder zusammen mit dem Namen kommen
+  if (req.body?.enabled !== undefined) {
+    store.setFeedEnabled(id, req.body.enabled !== false);
+  }
+  if (req.body?.name !== undefined) {
+    const name = String(req.body.name).trim();
+    if (!name) throw new Error('Bitte einen Namen für den Feed angeben.');
+    if (name.length > 120) throw new Error('Der Feed-Name ist zu lang (max. 120 Zeichen).');
+    store.renameFeed(id, name);
+  }
+  res.json(store.getFeed(id));
 }));
 
 app.delete('/api/feeds/:id', asyncHandler(async (req, res) => {
@@ -194,6 +250,25 @@ app.delete('/api/feeds/:id', asyncHandler(async (req, res) => {
 app.post('/api/feeds/reorder', asyncHandler(async (req, res) => {
   store.reorderFeeds(requireIdArray(req.body?.ids));
   res.json({ ok: true });
+}));
+
+// ---------------------------------------------------------------------------
+// API: OPML (Umzug von/zu anderen Readern)
+// ---------------------------------------------------------------------------
+
+app.get('/api/opml', (req, res) => {
+  const stamp = new Date().toISOString().slice(0, 10);
+  res.set('Content-Disposition', `attachment; filename="feedboard-${stamp}.opml"`);
+  res.type('application/xml').send(opml.buildOpml());
+});
+
+app.post('/api/opml', asyncHandler(async (req, res) => {
+  const xml = String(req.body?.xml || '');
+  if (!xml.trim()) throw new Error('Bitte eine OPML-Datei auswählen.');
+  const result = opml.importOpml(xml);
+  // Die neuen Feeds im Hintergrund füllen — der Import selbst bleibt schnell
+  if (result.feeds > 0) setTimeout(() => fetcher.refreshAllFeeds().catch(() => {}), 100);
+  res.json(result);
 }));
 
 // ---------------------------------------------------------------------------
@@ -232,6 +307,123 @@ app.post('/api/articles/:id/star', asyncHandler(async (req, res) => {
 
 app.get('/api/saved', asyncHandler(async (req, res) => {
   res.json({ results: store.getSavedArticles(200) });
+}));
+
+// ---------------------------------------------------------------------------
+// API: Volltext nachladen (für Feeds, die nur Anrisse liefern)
+// ---------------------------------------------------------------------------
+
+function requireArticle(id) {
+  const article = store.getArticleWithFeed(id);
+  if (!article) throw new Error('Artikel nicht gefunden.');
+  return article;
+}
+
+app.get('/api/articles/:id/content', asyncHandler(async (req, res) => {
+  const article = requireArticle(parseId(req.params.id));
+  res.json({ content: article.content || null, content_at: article.content_at || null });
+}));
+
+app.post('/api/articles/:id/content', asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  const article = requireArticle(id);
+  // Schon geladen? Dann nicht erneut die fremde Seite behelligen.
+  if (article.content && req.body?.force !== true) {
+    return res.json({ content: article.content, cached: true });
+  }
+  if (!article.link) throw new Error('Zu diesem Artikel gibt es keine Adresse.');
+
+  const result = await extract.fetchArticleText(article.link);
+  store.setArticleContent(id, result.text);
+  res.json({ content: result.text, cached: false });
+}));
+
+// ---------------------------------------------------------------------------
+// API: KI (nur mit ANTHROPIC_API_KEY)
+// ---------------------------------------------------------------------------
+
+function requireAi() {
+  if (!ai.isEnabled()) throw new Error('Die KI-Funktionen sind nicht eingerichtet.');
+}
+
+app.post('/api/articles/:id/ai/summary', asyncHandler(async (req, res) => {
+  requireAi();
+  const id = parseId(req.params.id);
+  const article = requireArticle(id);
+  if (article.ai_summary && req.body?.force !== true) {
+    return res.json({ summary: article.ai_summary, cached: true });
+  }
+  const summary = await ai.summarize(article);
+  store.setArticleAiSummary(id, summary);
+  res.json({ summary, cached: false });
+}));
+
+app.post('/api/articles/:id/ai/translate', asyncHandler(async (req, res) => {
+  requireAi();
+  const id = parseId(req.params.id);
+  const article = requireArticle(id);
+  const lang = ['de', 'ru', 'en'].includes(req.body?.lang) ? req.body.lang : 'de';
+  // Zwischengespeichert wird immer nur die zuletzt gewählte Zielsprache
+  if (article.ai_translation && article.ai_lang === lang && req.body?.force !== true) {
+    return res.json({ translation: article.ai_translation, lang, cached: true });
+  }
+  const translation = await ai.translate(article, lang);
+  store.setArticleAiTranslation(id, translation, lang);
+  res.json({ translation, lang, cached: false });
+}));
+
+// Das Briefing wird pro Tag und Sprache einmal erzeugt und dann wiederverwendet
+app.post('/api/ai/briefing', asyncHandler(async (req, res) => {
+  requireAi();
+  const lang = ['de', 'ru', 'en'].includes(req.body?.lang) ? req.body.lang : 'de';
+  const hours = Number(req.body?.hours) || 24;
+  const key = `ai_briefing_${lang}`;
+
+  const cached = store.getSetting(key);
+  if (cached && req.body?.force !== true) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (Date.now() - Date.parse(parsed.created_at) < 6 * 60 * 60 * 1000) {
+        return res.json({ ...parsed, cached: true });
+      }
+    } catch { /* kaputter Cache-Eintrag — einfach neu erzeugen */ }
+  }
+
+  const articles = store.getRecentUnread(hours, 120);
+  const text = await ai.briefing(articles, lang);
+  const payload = { text, lang, articles: articles.length, created_at: new Date().toISOString() };
+  store.setSetting(key, JSON.stringify(payload));
+  res.json({ ...payload, cached: false });
+}));
+
+// ---------------------------------------------------------------------------
+// API: Artikel per Telegram teilen
+// ---------------------------------------------------------------------------
+
+app.post('/api/articles/:id/share/telegram', asyncHandler(async (req, res) => {
+  const article = requireArticle(parseId(req.params.id));
+  await telegram.shareArticle({
+    title: article.title,
+    link: article.link,
+    summary: article.ai_summary || article.summary,
+    feedName: article.feed_name,
+  });
+  res.json({ ok: true });
+}));
+
+// ---------------------------------------------------------------------------
+// API: Backup & Wiederherstellung
+// ---------------------------------------------------------------------------
+
+app.get('/api/backup', (req, res) => {
+  const stamp = new Date().toISOString().slice(0, 10);
+  res.set('Content-Disposition', `attachment; filename="feedboard-backup-${stamp}.json"`);
+  res.json(store.exportBackup());
+});
+
+app.post('/api/restore', restoreBodyParser, asyncHandler(async (req, res) => {
+  const result = store.importBackup(req.body);
+  res.json(result);
 }));
 
 // ---------------------------------------------------------------------------

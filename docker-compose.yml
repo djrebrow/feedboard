@@ -14,4 +14,12 @@ services:
       - TZ=Europe/Berlin
       - FETCH_INTERVAL_MINUTES=30
       - DEV_ASSETS=1
+      # Optional, aus einer .env-Datei neben dieser docker-compose.yml.
+      # Leer gelassen bleibt die jeweilige Funktion einfach aus.
+      - FEEDBOARD_PASSWORD=${FEEDBOARD_PASSWORD:-}
+      - SESSION_SECRET=${SESSION_SECRET:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
     restart: unless-stopped

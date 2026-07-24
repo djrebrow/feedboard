@@ -71,6 +71,17 @@ ensureColumn('feeds', 'type', 'TEXT');
 ensureColumn('articles', 'read_at', 'TEXT');
 // Speicher-Zeitpunkt eines Artikels (NULL = nicht gespeichert)
 ensureColumn('articles', 'starred_at', 'TEXT');
+// Feed pausiert (0) oder aktiv (1) — pausierte Feeds werden nicht abgerufen
+ensureColumn('feeds', 'enabled', 'INTEGER NOT NULL DEFAULT 1');
+// Fehler in Folge; ab AUTO_DISABLE_AFTER_ERRORS wird der Feed automatisch pausiert
+ensureColumn('feeds', 'error_count', 'INTEGER NOT NULL DEFAULT 0');
+// Nachgeladener Volltext eines Artikels (Anriss-Feeds)
+ensureColumn('articles', 'content', 'TEXT');
+ensureColumn('articles', 'content_at', 'TEXT');
+// KI-Ergebnisse (gecacht, damit jeder Artikel höchstens einen Aufruf kostet)
+ensureColumn('articles', 'ai_summary', 'TEXT');
+ensureColumn('articles', 'ai_translation', 'TEXT');
+ensureColumn('articles', 'ai_lang', 'TEXT');
 
 // Schlüssel-Wert-Einstellungen (z. B. Mute-Wörter)
 db.exec(`
@@ -247,12 +258,36 @@ function reorderFeeds(ids) {
 }
 
 function markFeedFetched(id) {
-  db.prepare("UPDATE feeds SET last_fetched_at = datetime('now'), last_error = NULL WHERE id = ?").run(id);
+  db.prepare("UPDATE feeds SET last_fetched_at = datetime('now'), last_error = NULL, error_count = 0 WHERE id = ?")
+    .run(id);
 }
 
+// Nach so vielen Fehlversuchen in Folge gilt ein Feed als tot und wird
+// pausiert — sonst laufen gelöschte Adressen ewig weiter ins Leere.
+const AUTO_DISABLE_AFTER_ERRORS = 20;
+
 function markFeedError(id, message) {
-  db.prepare("UPDATE feeds SET last_fetched_at = datetime('now'), last_error = ? WHERE id = ?")
-    .run(String(message).slice(0, 500), id);
+  db.prepare(`
+    UPDATE feeds
+    SET last_fetched_at = datetime('now'),
+        last_error      = ?,
+        error_count     = error_count + 1,
+        enabled         = CASE WHEN error_count + 1 >= ? THEN 0 ELSE enabled END
+    WHERE id = ?
+  `).run(String(message).slice(0, 500), AUTO_DISABLE_AFTER_ERRORS, id);
+  return getFeed(id);
+}
+
+function setFeedEnabled(id, enabled) {
+  // Beim Reaktivieren den Fehlerzähler zurücksetzen, damit der Feed nicht
+  // sofort wieder in die Auto-Pause läuft.
+  db.prepare('UPDATE feeds SET enabled = ?, error_count = CASE WHEN ? THEN 0 ELSE error_count END WHERE id = ?')
+    .run(enabled ? 1 : 0, enabled ? 1 : 0, id);
+  return getFeed(id);
+}
+
+function getEnabledFeeds() {
+  return db.prepare('SELECT * FROM feeds WHERE enabled = 1 ORDER BY category_id, position, id').all();
 }
 
 // ---------------------------------------------------------------------------
@@ -289,7 +324,8 @@ function pruneArticles(feedId, keep = 30) {
 
 function getArticlesForBoard(limitPerFeed = 30) {
   return db.prepare(`
-    SELECT id, feed_id, guid, title, link, summary, image_url, read_at, starred_at, published_at, fetched_at
+    SELECT id, feed_id, guid, title, link, summary, image_url, read_at, starred_at, published_at, fetched_at,
+           content IS NOT NULL AS has_content, ai_summary, ai_translation
     FROM (
       SELECT a.*,
              ROW_NUMBER() OVER (
@@ -355,6 +391,51 @@ function getSavedArticles(limit = 200) {
     category_name: row.category_name,
     category_slug: row.category_slug,
   }));
+}
+
+// Volltext & KI-Ergebnisse ---------------------------------------------------
+
+// Artikel samt Feed- und Rubrik-Namen — Basis für Volltext, KI und Teilen
+function getArticleWithFeed(id) {
+  return db.prepare(`
+    SELECT a.*, f.name AS feed_name, f.site_url AS feed_site_url, f.type AS feed_type,
+           c.name AS category_name
+    FROM articles a
+    JOIN feeds f ON f.id = a.feed_id
+    JOIN categories c ON c.id = f.category_id
+    WHERE a.id = ?
+  `).get(id);
+}
+
+function setArticleContent(id, content) {
+  db.prepare("UPDATE articles SET content = ?, content_at = datetime('now') WHERE id = ?")
+    .run(content ?? null, id);
+}
+
+function setArticleAiSummary(id, summary) {
+  db.prepare('UPDATE articles SET ai_summary = ? WHERE id = ?').run(summary ?? null, id);
+}
+
+function setArticleAiTranslation(id, translation, lang) {
+  db.prepare('UPDATE articles SET ai_translation = ?, ai_lang = ? WHERE id = ?')
+    .run(translation ?? null, lang ?? null, id);
+}
+
+// Ungelesene Artikel der letzten Stunden — Grundlage für das Tages-Briefing
+function getRecentUnread(hours = 24, limit = 120) {
+  const muteLower = getMuteWords().map((w) => w.toLowerCase());
+  const rows = db.prepare(`
+    SELECT a.id, a.title, a.summary, a.link, a.published_at, a.fetched_at,
+           f.name AS feed_name, c.name AS category_name
+    FROM articles a
+    JOIN feeds f ON f.id = a.feed_id
+    JOIN categories c ON c.id = f.category_id
+    WHERE a.read_at IS NULL
+      AND COALESCE(a.published_at, a.fetched_at) >= datetime('now', ?)
+    ORDER BY COALESCE(a.published_at, a.fetched_at) DESC
+    LIMIT ?
+  `).all(`-${Math.max(1, Math.min(168, Number(hours) || 24))} hours`, limit);
+  return rows.filter((row) => !isMuted(row, muteLower));
 }
 
 // Volltextsuche (JS-seitig, damit Groß-/Kleinschreibung auch bei Kyrillisch passt)
@@ -453,6 +534,11 @@ function getBoard() {
       starred: !!article.starred_at,
       published_at: article.published_at,
       fetched_at: article.fetched_at,
+      // Volltext selbst bleibt draußen (zu groß fürs Board) — nur der Hinweis,
+      // dass er schon geladen wurde; abgerufen wird er einzeln.
+      has_content: !!article.has_content,
+      ai_summary: article.ai_summary || null,
+      ai_translation: article.ai_translation || null,
     });
   }
 
@@ -468,6 +554,8 @@ function getBoard() {
       site_url: feed.site_url,
       last_fetched_at: feed.last_fetched_at,
       last_error: feed.last_error,
+      enabled: feed.enabled !== 0,
+      error_count: feed.error_count || 0,
       unread: feedArticles.filter((a) => !a.read).length,
       articles: feedArticles,
     });
@@ -486,6 +574,67 @@ function getBoard() {
       };
     }),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Backup & Wiederherstellung (JSON, damit es ohne SQLite-Werkzeuge lesbar ist)
+// ---------------------------------------------------------------------------
+
+const BACKUP_VERSION = 1;
+
+function exportBackup() {
+  return {
+    format: 'feedboard-backup',
+    version: BACKUP_VERSION,
+    exported_at: new Date().toISOString(),
+    categories: db.prepare('SELECT * FROM categories ORDER BY position, id').all(),
+    feeds: db.prepare('SELECT * FROM feeds ORDER BY category_id, position, id').all(),
+    articles: db.prepare('SELECT * FROM articles ORDER BY feed_id, id').all(),
+    settings: db.prepare('SELECT * FROM settings').all(),
+  };
+}
+
+function insertRow(table, row, columns) {
+  const used = columns.filter((c) => row[c] !== undefined);
+  db.prepare(
+    `INSERT INTO ${table} (${used.join(', ')}) VALUES (${used.map(() => '?').join(', ')})`
+  ).run(...used.map((c) => (row[c] === undefined ? null : row[c])));
+}
+
+// Ersetzt den kompletten Bestand. Läuft in einer Transaktion: schlägt etwas
+// fehl, bleibt die alte Datenbank unverändert.
+function importBackup(data) {
+  if (!data || data.format !== 'feedboard-backup') {
+    throw new Error('Das ist keine Feedboard-Sicherung.');
+  }
+  if (Number(data.version) > BACKUP_VERSION) {
+    throw new Error('Die Sicherung stammt aus einer neueren Feedboard-Version.');
+  }
+  const categories = Array.isArray(data.categories) ? data.categories : [];
+  const feeds = Array.isArray(data.feeds) ? data.feeds : [];
+  const articles = Array.isArray(data.articles) ? data.articles : [];
+  const settings = Array.isArray(data.settings) ? data.settings : [];
+  if (!categories.length) throw new Error('Die Sicherung enthält keine Rubriken.');
+
+  const columnsOf = (table) => db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+  const categoryColumns = columnsOf('categories');
+  const feedColumns = columnsOf('feeds');
+  const articleColumns = columnsOf('articles');
+
+  db.exec('BEGIN');
+  try {
+    db.exec('DELETE FROM articles; DELETE FROM feeds; DELETE FROM categories; DELETE FROM settings;');
+    for (const row of categories) insertRow('categories', row, categoryColumns);
+    for (const row of feeds) insertRow('feeds', row, feedColumns);
+    for (const row of articles) insertRow('articles', row, articleColumns);
+    for (const row of settings) setSetting(row.key, row.value);
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw new Error(`Wiederherstellung fehlgeschlagen: ${error.message}`);
+  }
+
+  return { categories: categories.length, feeds: feeds.length, articles: articles.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -533,6 +682,7 @@ module.exports = {
   deleteCategory,
   reorderCategories,
   getFeeds,
+  getEnabledFeeds,
   getFeed,
   getFeedByUrl,
   findSimilarFeed,
@@ -542,6 +692,8 @@ module.exports = {
   reorderFeeds,
   markFeedFetched,
   markFeedError,
+  setFeedEnabled,
+  AUTO_DISABLE_AFTER_ERRORS,
   upsertArticle,
   pruneArticles,
   setArticleRead,
@@ -550,6 +702,13 @@ module.exports = {
   setArticleStarred,
   getSavedArticles,
   searchArticles,
+  getArticleWithFeed,
+  setArticleContent,
+  setArticleAiSummary,
+  setArticleAiTranslation,
+  getRecentUnread,
+  exportBackup,
+  importBackup,
   getSetting,
   setSetting,
   getMuteWords,

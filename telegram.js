@@ -120,9 +120,56 @@ async function fetchTelegramChannel(channel) {
   return { url, title, channel, messages };
 }
 
+// ---------------------------------------------------------------------------
+// Artikel an den eigenen Telegram-Chat schicken (Bot API)
+// ---------------------------------------------------------------------------
+
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+const CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
+
+function canShare() {
+  return !!(BOT_TOKEN && CHAT_ID);
+}
+
+// Bewusst ohne parse_mode: dann muss nichts escapt werden und Telegram
+// verlinkt nackte URLs von selbst.
+async function shareArticle({ title, link, summary, feedName }) {
+  if (!canShare()) {
+    throw new Error('Das Teilen ist nicht eingerichtet (TELEGRAM_BOT_TOKEN und TELEGRAM_CHAT_ID fehlen).');
+  }
+
+  const parts = [String(title || '').trim()];
+  if (feedName) parts.push(`(${feedName})`);
+  const text = [
+    parts.join(' '),
+    summary ? `\n${String(summary).slice(0, 600)}` : '',
+    link ? `\n${link}` : '',
+  ].join('').trim();
+
+  const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text: text.slice(0, 4096),
+      disable_web_page_preview: false,
+    }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data || data.ok !== true) {
+    const reason = data && data.description ? data.description : `HTTP ${response.status}`;
+    throw new Error(`Telegram hat die Nachricht abgelehnt: ${reason}`);
+  }
+  return { ok: true };
+}
+
 module.exports = {
   detectTelegramChannel,
   channelWebviewUrl,
   channelFromWebviewUrl,
   fetchTelegramChannel,
+  canShare,
+  shareArticle,
 };

@@ -6,7 +6,7 @@ ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-COPY server.js db.js feedFetcher.js telegram.js ./
+COPY server.js db.js feedFetcher.js telegram.js opml.js extract.js auth.js ai.js ./
 COPY public ./public
 
 EXPOSE 8321

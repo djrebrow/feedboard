@@ -5,3 +5,4 @@ data/*.db-wal
 data/favicons/
 .env
 *.log
+.playwright-mcp/
