@@ -1,5 +1,7 @@
 # Feedboard
 
+*[English version](README.en.md)*
+
 Selbstgehostetes Dashboard für RSS-/Atom-Feeds und öffentliche Telegram-Kanäle. Rubriken und Quellen werden vollständig über die Oberfläche angelegt, umbenannt, sortiert und gelöscht — keine YAML-Konfiguration nötig.
 
 ## Funktionen
