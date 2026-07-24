@@ -13,16 +13,34 @@ Selbstgehostetes Dashboard für RSS-/Atom-Feeds und öffentliche Telegram-Kanäl
 - **Öffentliche Telegram-Kanäle** als Quelle: `@kanal` oder `t.me/kanal` eingeben, gelesen wird die öffentliche Web-Vorschau
 - **Rubrik-Logos** hochladen (werden als Bilddaten in der Datenbank abgelegt) und eigener Anker je Rubrik für die Adresszeile
 - Reihenfolge von Rubriken und Feeds frei sortierbar
+- **OPML-Import und -Export** über das Zahnrad-Menü — der übliche Umzugsweg von und zu anderen Readern
+- **Feeds pausieren**; Feeds, die 20-mal in Folge fehlschlagen, pausieren sich automatisch und werden nicht weiter abgerufen (Kennzeichnung „pausiert" im Feed-Kopf)
 
 ### Lesen
 
 - **Startseite mit Rubrik-Kacheln**, Klick öffnet die Rubrik mit allen Feeds (Adresse `#/<anker>`, damit einzelne Rubriken direkt verlinkbar sind)
+- **„Alle Artikel"**: ein chronologischer Strom über sämtliche Rubriken hinweg (Listen-Symbol in der Werkzeugleiste oder Taste `a`)
 - **Kurzfassungen** aus den Feed-Inhalten (HTML bereinigt), per Klick auf die Artikelzeile aufklappbar
 - **Artikel-Vorschau** mit Bild und Kurzfassung beim Überfahren mit der Maus; auf Touch-Geräten als eingeblendete Karte
 - **Lese-Status** je Artikel, dazu „alles gelesen" pro Feed oder Rubrik, Ungelesen-Zähler und ein Filter für ungelesene Artikel
 - **Gespeicherte Artikel** (Stern) mit eigener Ansicht
 - **Volltextsuche** über alle vorliegenden Artikel (Titel und Kurzfassung)
 - **Ausblenden per Stichwort** (Mute-Wörter); gespeicherte Artikel bleiben davon unberührt
+- **Volltext nachladen** bei Feeds, die nur Anrisse liefern: der Artikeltext wird aus der Seite geholt und in der Datenbank abgelegt (auch offline lesbar)
+- **Tastatur-Navigation**: `j`/`k` Artikel wechseln, `o` öffnen, `m` gelesen, `s` speichern, `r` aktualisieren, `u` nur Ungelesene, `a` alle Artikel, `/` suchen, `Esc` zurück (Übersicht im Zahnrad-Menü)
+
+### Optional: KI und Teilen
+
+Beide Funktionen sind aus, solange die zugehörigen Umgebungsvariablen fehlen — die Knöpfe erscheinen dann gar nicht erst.
+
+- **KI-Kurzfassung** (drei Sätze) und **Übersetzung** je Artikel über die Claude API; beides wird zwischengespeichert, kostet also höchstens einen Aufruf je Artikel
+- **Tages-Briefing**: alle ungelesenen Artikel der letzten 24 Stunden nach Themen gebündelt (Zahnrad-Menü); wird sechs Stunden lang wiederverwendet
+- **Artikel per Telegram teilen** — an den eigenen Chat über einen Bot
+
+### Sicherheit & Sicherung
+
+- **Zugangsschutz** mit Passwort und signiertem Session-Cookie (30 Tage), Login-Seite unter `/login`, „Abmelden" im Zahnrad-Menü. Ohne gesetztes Passwort bleibt alles wie bisher offen — bestehende Installationen ändern sich durch ein Update nicht. Nach zehn Fehlversuchen je Viertelstunde und Absender-IP ist Schluss.
+- **Sicherung als JSON** herunterladen und wieder einspielen (Rubriken, Feeds, Artikel, Einstellungen). Das Einspielen ersetzt den kompletten Bestand und läuft in einer Transaktion — schlägt es fehl, bleibt die alte Datenbank unverändert.
 
 ### Darstellung & Betrieb
 
@@ -66,6 +84,14 @@ Die Datenbank liegt im Ordner `./data` und überlebt Container-Neustarts und -Up
 | `FETCH_INTERVAL_MINUTES` | `30`                  | Abrufintervall in Minuten (5–59)                                                                                       |
 | `DB_PATH`                | `./data/feedboard.db` | Pfad zur SQLite-Datei                                                                                                  |
 | `DEV_ASSETS`             | –                     | `1` = Asset-Version bei jedem Seitenaufruf neu aus den Dateizeiten bestimmen (für die Live-Entwicklung des Frontends)   |
+| `FEEDBOARD_PASSWORD`     | –                     | Gesetzt = Zugangsschutz aktiv. Leer = offen wie bisher.                                                                 |
+| `SESSION_SECRET`         | –                     | Schlüssel zum Signieren der Session-Cookies. Ohne Angabe wird einmalig einer erzeugt und in der Datenbank abgelegt.     |
+| `ANTHROPIC_API_KEY`      | –                     | Schaltet Kurzfassung, Übersetzung und Briefing frei                                                                    |
+| `ANTHROPIC_MODEL`        | `claude-opus-5`       | Verwendetes Claude-Modell                                                                                              |
+| `TELEGRAM_BOT_TOKEN`     | –                     | Bot-Token zum Teilen von Artikeln (zusammen mit `TELEGRAM_CHAT_ID`)                                                    |
+| `TELEGRAM_CHAT_ID`       | –                     | Ziel-Chat für geteilte Artikel                                                                                          |
+
+Für Docker liegen die optionalen Werte am besten in einer `.env` neben der `docker-compose.yml` — sie werden dort schon durchgereicht.
 
 ## API (falls man sie direkt nutzen möchte)
 
@@ -92,7 +118,7 @@ Die Datenbank liegt im Ordner `./data` und überlebt Container-Neustarts und -Up
 | Methode & Pfad                | Zweck                                                                  |
 | ----------------------------- | ---------------------------------------------------------------------- |
 | `POST /api/feeds`             | Feed anlegen `{ category_id, url, name? }` (Website-Adresse, RSS-Adresse oder Telegram-Kanal) |
-| `PATCH /api/feeds/:id`        | Feed umbenennen `{ name }`                                             |
+| `PATCH /api/feeds/:id`        | Feed umbenennen bzw. pausieren `{ name?, enabled? }`                   |
 | `DELETE /api/feeds/:id`       | Feed löschen                                                           |
 | `POST /api/feeds/reorder`     | Feed-Reihenfolge setzen `{ ids: […] }`                                 |
 | `POST /api/feeds/:id/refresh` | Einzelnen Feed sofort aktualisieren                                    |
@@ -112,19 +138,45 @@ Die Datenbank liegt im Ordner `./data` und überlebt Container-Neustarts und -Up
 | `PUT /api/settings/mute`         | Mute-Wörter setzen `{ words: […] }`                        |
 | `GET /api/favicon?host=…`        | Favicon über den lokalen Cache ausliefern                  |
 
+### Volltext, KI und Teilen
+
+| Methode & Pfad                              | Zweck                                                                     |
+| ------------------------------------------- | ------------------------------------------------------------------------- |
+| `GET /api/articles/:id/content`             | Bereits geladenen Volltext abrufen                                        |
+| `POST /api/articles/:id/content`            | Volltext von der Artikelseite holen und speichern `{ force? }`            |
+| `POST /api/articles/:id/ai/summary`         | KI-Kurzfassung erzeugen (gecacht) `{ force? }`                            |
+| `POST /api/articles/:id/ai/translate`       | Artikel übersetzen `{ lang: 'de' \| 'ru' \| 'en', force? }`               |
+| `POST /api/ai/briefing`                     | Tages-Briefing über die ungelesenen Artikel `{ lang?, hours?, force? }`   |
+| `POST /api/articles/:id/share/telegram`     | Artikel an den eigenen Telegram-Chat schicken                             |
+
+### Umzug, Sicherung und Anmeldung
+
+| Methode & Pfad     | Zweck                                                                 |
+| ------------------ | --------------------------------------------------------------------- |
+| `GET /api/opml`    | Alle Rubriken und Feeds als OPML herunterladen                        |
+| `POST /api/opml`   | OPML einlesen `{ xml }` (vorhandene Feeds werden übersprungen)         |
+| `GET /api/backup`  | Vollständige Sicherung als JSON                                       |
+| `POST /api/restore`| Sicherung einspielen (ersetzt den kompletten Bestand)                  |
+| `POST /api/login`  | Anmelden `{ password }` — setzt das Session-Cookie                     |
+| `POST /api/logout` | Abmelden                                                              |
+
 ## Entwicklung
 
-`smoke-test.js` prüft das Frontend (Rendering, Rubrik-Drill-down, Edit-Modus, Design-Auswahl, XSS-Escaping) ohne Browser. Dafür einmalig `npm install --no-save jsdom`, dann `node smoke-test.js`.
+`smoke-test.js` prüft das Frontend (Rendering, Rubrik-Drill-down, Edit-Modus, Design-Auswahl, XSS-Escaping, „Alle Artikel", Tastatur-Navigation, Artikel-Aktionen, Feed-Pause) ohne Browser. Dafür einmalig `npm install --no-save jsdom`, dann `node smoke-test.js`.
 
-**Frontend ohne Rebuild ändern:** `docker-compose.yml` hängt `./public` schreibgeschützt in den Container und setzt `DEV_ASSETS=1`. Änderungen an HTML, CSS und JavaScript sind damit nach einem Reload im Browser sichtbar. Änderungen am Backend (`server.js`, `db.js`, `feedFetcher.js`, `telegram.js`) stecken im Image und brauchen `docker compose up -d --build`. Für einen reinen Produktivbetrieb lassen sich die eingehängte Zeile und `DEV_ASSETS` aus `docker-compose.yml` entfernen.
+**Frontend ohne Rebuild ändern:** `docker-compose.yml` hängt `./public` schreibgeschützt in den Container und setzt `DEV_ASSETS=1`. Änderungen an HTML, CSS und JavaScript sind damit nach einem Reload im Browser sichtbar. Änderungen am Backend (`server.js`, `db.js`, `feedFetcher.js`, `telegram.js`, `opml.js`, `extract.js`, `auth.js`, `ai.js`) stecken im Image und brauchen `docker compose up -d --build`. Für einen reinen Produktivbetrieb lassen sich die eingehängte Zeile und `DEV_ASSETS` aus `docker-compose.yml` entfernen.
 
 ## Projektstruktur
 
 ```
 server.js        Express-Server, API, Cron-Job
-db.js            SQLite-Schema und Datenzugriff (node:sqlite)
+db.js            SQLite-Schema und Datenzugriff (node:sqlite), Sicherung
 feedFetcher.js   RSS-/Atom-Parsing, Kurzfassungen, Autodiscovery
-telegram.js      Öffentliche Telegram-Kanäle über die Web-Vorschau
-public/          Frontend (HTML/CSS/JS, ohne Framework, PWA)
+telegram.js      Öffentliche Telegram-Kanäle lesen, Artikel per Bot teilen
+opml.js          OPML lesen und schreiben
+extract.js       Volltext aus Artikelseiten (eigene Heuristik auf cheerio)
+auth.js          Passwort, Session-Cookie, Login-Middleware
+ai.js            Claude API: Kurzfassung, Übersetzung, Briefing
+public/          Frontend (HTML/CSS/JS, ohne Framework, PWA) inkl. login.html
 data/            SQLite-Datenbank und Favicon-Cache (werden automatisch angelegt)
 ```
