@@ -39,8 +39,11 @@ Both stay switched off while their environment variables are missing — the but
 
 ### Security & backup
 
-- **Password protection** with a signed session cookie (30 days), a login page at `/login` and "log out" in the gear menu. With no password set everything stays open as before — an update changes nothing for existing installations. Ten failed attempts per quarter hour and source IP is the limit.
-- **JSON backup** to download and restore (categories, feeds, articles, settings). Restoring replaces everything and runs in a transaction — if it fails, the old database is left untouched.
+- **Reading stays open for everyone, editing is protected.** Once a password is set, only interventions require a login: creating, changing, reordering and deleting categories and feeds, OPML import, restore, mute words, downloading a backup — plus anything that costs money or goes outward (AI calls, sharing). Board, search, read state and stars stay open.
+- Clicking the pencil then opens a **login dialog** instead of edit mode, and continues straight into it afterwards. A signed cookie keeps you logged in for 30 days. Ten failed attempts per quarter hour and source IP is the limit.
+- **Set and change the password in the gear menu** under "Zugang". It is stored as an scrypt hash in the database; `FEEDBOARD_PASSWORD` creates the first one on the very first start. Changing it logs every other session out.
+- With no password set everything stays open as before — an update changes nothing for existing installations.
+- **JSON backup** to download and restore (categories, feeds, articles, settings). Credentials are deliberately left out and survive a restore. Restoring replaces the rest and runs in a transaction — if it fails, the old database is left untouched.
 
 ### Appearance & operation
 
@@ -84,8 +87,7 @@ The database lives in the `./data` folder and survives container restarts and up
 | `FETCH_INTERVAL_MINUTES` | `30`                  | Refresh interval in minutes (5–59)                                                                            |
 | `DB_PATH`                | `./data/feedboard.db` | Path to the SQLite file                                                                                       |
 | `DEV_ASSETS`             | –                     | `1` = determine the asset version from file timestamps on every page request (for live frontend development)   |
-| `FEEDBOARD_PASSWORD`     | –                     | Set = password protection is on. Empty = open as before.                                                      |
-| `SESSION_SECRET`         | –                     | Key used to sign session cookies. Without one, a key is generated once and stored in the database.             |
+| `FEEDBOARD_PASSWORD`     | –                     | Creates the password on the very first start. Afterwards the one set in the menu applies. Empty = editing stays open. |
 | `ANTHROPIC_API_KEY`      | –                     | Enables summary, translation and briefing                                                                     |
 | `ANTHROPIC_MODEL`        | `claude-opus-5`       | Claude model to use                                                                                           |
 | `TELEGRAM_BOT_TOKEN`     | –                     | Bot token for sharing articles (together with `TELEGRAM_CHAT_ID`)                                             |
@@ -159,10 +161,18 @@ For Docker, the optional values are best kept in a `.env` next to `docker-compos
 | `POST /api/restore` | Restore a backup (replaces everything)                        |
 | `POST /api/login`   | Log in `{ password }` — sets the session cookie                |
 | `POST /api/logout`  | Log out                                                       |
+| `POST /api/password`| Set or change the password `{ current, next }`                 |
 
 ## Development
 
 `smoke-test.js` checks the frontend (rendering, category drill-down, edit mode, theme selection, XSS escaping, "all articles", keyboard navigation, article actions, feed pausing) without a browser. Run `npm install --no-save jsdom` once, then `node smoke-test.js`.
+
+**Forgot the password?** Clear the hash once, then `FEEDBOARD_PASSWORD` applies again on the next start:
+
+```bash
+docker compose exec feedboard node -e "require('./db').setSetting('password_hash', null)"
+docker compose restart
+```
 
 **Changing the frontend without a rebuild:** `docker-compose.yml` mounts `./public` into the container read-only and sets `DEV_ASSETS=1`. Changes to HTML, CSS and JavaScript are then visible after a reload in the browser. Backend changes (`server.js`, `db.js`, `feedFetcher.js`, `telegram.js`, `opml.js`, `extract.js`, `auth.js`, `ai.js`) live in the image and require `docker compose up -d --build`. For plain production use, the mounted line and `DEV_ASSETS` can be removed from `docker-compose.yml`.
 
@@ -175,7 +185,7 @@ feedFetcher.js   RSS/Atom parsing, summaries, autodiscovery
 telegram.js      Reading public Telegram channels, sharing articles via a bot
 opml.js          Reading and writing OPML
 extract.js       Full text from article pages (own heuristic on cheerio)
-auth.js          Password, session cookie, login middleware
+auth.js          Password (scrypt), session cookie, per-route protection
 ai.js            Claude API: summary, translation, briefing
 public/          Frontend (HTML/CSS/JS, no framework, PWA) incl. login.html
 data/            SQLite database and favicon cache (created automatically)

@@ -39,8 +39,11 @@ Beide Funktionen sind aus, solange die zugehörigen Umgebungsvariablen fehlen �
 
 ### Sicherheit & Sicherung
 
-- **Zugangsschutz** mit Passwort und signiertem Session-Cookie (30 Tage), Login-Seite unter `/login`, „Abmelden" im Zahnrad-Menü. Ohne gesetztes Passwort bleibt alles wie bisher offen — bestehende Installationen ändern sich durch ein Update nicht. Nach zehn Fehlversuchen je Viertelstunde und Absender-IP ist Schluss.
-- **Sicherung als JSON** herunterladen und wieder einspielen (Rubriken, Feeds, Artikel, Einstellungen). Das Einspielen ersetzt den kompletten Bestand und läuft in einer Transaktion — schlägt es fehl, bleibt die alte Datenbank unverändert.
+- **Lesen bleibt für alle frei, Bearbeiten ist geschützt.** Sobald ein Passwort gesetzt ist, verlangen nur noch Eingriffe eine Anmeldung: Rubriken und Feeds anlegen, ändern, sortieren und löschen, OPML-Import, Wiederherstellung, Mute-Wörter, Sicherung herunterladen — dazu alles, was Geld kostet oder nach außen geht (KI-Aufrufe, Teilen). Board, Suche, Lese-Status und Sterne bleiben offen.
+- Der Klick auf den Stift öffnet dann einen **Anmelde-Dialog** statt des Bearbeitungsmodus; danach geht es direkt weiter. Angemeldet bleibt man 30 Tage über ein signiertes Cookie. Nach zehn Fehlversuchen je Viertelstunde und Absender-IP ist Schluss.
+- **Passwort setzen und ändern im Zahnrad-Menü** unter „Zugang". Das Passwort liegt als scrypt-Hash in der Datenbank; `FEEDBOARD_PASSWORD` legt beim allerersten Start eines an. Eine Änderung meldet alle anderen Sitzungen ab.
+- Ohne gesetztes Passwort bleibt alles wie bisher offen — bestehende Installationen ändern sich durch ein Update nicht.
+- **Sicherung als JSON** herunterladen und wieder einspielen (Rubriken, Feeds, Artikel, Einstellungen). Zugangsdaten sind bewusst nicht enthalten und überleben eine Wiederherstellung. Das Einspielen ersetzt den restlichen Bestand und läuft in einer Transaktion — schlägt es fehl, bleibt die alte Datenbank unverändert.
 
 ### Darstellung & Betrieb
 
@@ -84,8 +87,7 @@ Die Datenbank liegt im Ordner `./data` und überlebt Container-Neustarts und -Up
 | `FETCH_INTERVAL_MINUTES` | `30`                  | Abrufintervall in Minuten (5–59)                                                                                       |
 | `DB_PATH`                | `./data/feedboard.db` | Pfad zur SQLite-Datei                                                                                                  |
 | `DEV_ASSETS`             | –                     | `1` = Asset-Version bei jedem Seitenaufruf neu aus den Dateizeiten bestimmen (für die Live-Entwicklung des Frontends)   |
-| `FEEDBOARD_PASSWORD`     | –                     | Gesetzt = Zugangsschutz aktiv. Leer = offen wie bisher.                                                                 |
-| `SESSION_SECRET`         | –                     | Schlüssel zum Signieren der Session-Cookies. Ohne Angabe wird einmalig einer erzeugt und in der Datenbank abgelegt.     |
+| `FEEDBOARD_PASSWORD`     | –                     | Legt beim allerersten Start das Passwort an. Danach gilt, was im Menü gesetzt wurde. Leer = bearbeiten bleibt offen.     |
 | `ANTHROPIC_API_KEY`      | –                     | Schaltet Kurzfassung, Übersetzung und Briefing frei                                                                    |
 | `ANTHROPIC_MODEL`        | `claude-opus-5`       | Verwendetes Claude-Modell                                                                                              |
 | `TELEGRAM_BOT_TOKEN`     | –                     | Bot-Token zum Teilen von Artikeln (zusammen mit `TELEGRAM_CHAT_ID`)                                                    |
@@ -159,10 +161,18 @@ Für Docker liegen die optionalen Werte am besten in einer `.env` neben der `doc
 | `POST /api/restore`| Sicherung einspielen (ersetzt den kompletten Bestand)                  |
 | `POST /api/login`  | Anmelden `{ password }` — setzt das Session-Cookie                     |
 | `POST /api/logout` | Abmelden                                                              |
+| `POST /api/password` | Passwort setzen oder ändern `{ current, next }`                     |
 
 ## Entwicklung
 
 `smoke-test.js` prüft das Frontend (Rendering, Rubrik-Drill-down, Edit-Modus, Design-Auswahl, XSS-Escaping, „Alle Artikel", Tastatur-Navigation, Artikel-Aktionen, Feed-Pause) ohne Browser. Dafür einmalig `npm install --no-save jsdom`, dann `node smoke-test.js`.
+
+**Passwort vergessen?** Einmal den Hash löschen, dann greift beim nächsten Start wieder `FEEDBOARD_PASSWORD`:
+
+```bash
+docker compose exec feedboard node -e "require('./db').setSetting('password_hash', null)"
+docker compose restart
+```
 
 **Frontend ohne Rebuild ändern:** `docker-compose.yml` hängt `./public` schreibgeschützt in den Container und setzt `DEV_ASSETS=1`. Änderungen an HTML, CSS und JavaScript sind damit nach einem Reload im Browser sichtbar. Änderungen am Backend (`server.js`, `db.js`, `feedFetcher.js`, `telegram.js`, `opml.js`, `extract.js`, `auth.js`, `ai.js`) stecken im Image und brauchen `docker compose up -d --build`. Für einen reinen Produktivbetrieb lassen sich die eingehängte Zeile und `DEV_ASSETS` aus `docker-compose.yml` entfernen.
 
@@ -175,7 +185,7 @@ feedFetcher.js   RSS-/Atom-Parsing, Kurzfassungen, Autodiscovery
 telegram.js      Öffentliche Telegram-Kanäle lesen, Artikel per Bot teilen
 opml.js          OPML lesen und schreiben
 extract.js       Volltext aus Artikelseiten (eigene Heuristik auf cheerio)
-auth.js          Passwort, Session-Cookie, Login-Middleware
+auth.js          Passwort (scrypt), Session-Cookie, Schutz einzelner Routen
 ai.js            Claude API: Kurzfassung, Übersetzung, Briefing
 public/          Frontend (HTML/CSS/JS, ohne Framework, PWA) inkl. login.html
 data/            SQLite-Datenbank und Favicon-Cache (werden automatisch angelegt)

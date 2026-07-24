@@ -1276,6 +1276,24 @@ body.font-large .search-result .article-title { font-size: 16.5px; }
   justify-self: start;
 }
 
+/* Anmelde- und Passwort-Formular im Sheet */
+.sheet-form { display: flex; flex-direction: column; gap: 8px; }
+
+.sheet-form input {
+  width: 100%;
+  padding: 9px 11px;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  outline: none;
+}
+
+.sheet-form input:focus { border-color: var(--accent); }
+.sheet-form .sheet-actions { margin-top: 6px; }
+
 /* Briefing im Sheet */
 .sheet-briefing {
   max-height: 60vh;

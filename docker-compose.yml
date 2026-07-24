@@ -17,7 +17,6 @@ services:
       # Optional, aus einer .env-Datei neben dieser docker-compose.yml.
       # Leer gelassen bleibt die jeweilige Funktion einfach aus.
       - FEEDBOARD_PASSWORD=${FEEDBOARD_PASSWORD:-}
-      - SESSION_SECRET=${SESSION_SECRET:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}

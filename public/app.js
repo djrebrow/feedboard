@@ -120,11 +120,26 @@
       ai_briefing_title: 'Briefing der letzten 24 Stunden',
       ai_briefing_empty: 'Keine ungelesenen Artikel für ein Briefing.',
       data_label: 'Daten',
+      account_label: 'Zugang',
       opml_export: 'OPML exportieren',
       opml_import: 'OPML einlesen',
       backup_export: 'Sicherung speichern',
       backup_import: 'Sicherung einspielen',
       logout: 'Abmelden',
+      login: 'Anmelden',
+      login_title: 'Anmelden',
+      login_hint: 'Rubriken und Feeds bearbeiten ist mit Passwort geschützt.',
+      password_placeholder: 'Passwort',
+      password_set: 'Passwort setzen',
+      password_change: 'Passwort ändern',
+      password_current: 'Aktuelles Passwort',
+      password_new: 'Neues Passwort',
+      password_repeat: 'Neues Passwort wiederholen',
+      password_hint: 'Mit gesetztem Passwort bleibt Lesen für alle frei; Bearbeiten verlangt eine Anmeldung.',
+      password_mismatch: 'Die beiden Passwörter stimmen nicht überein.',
+      toast_password_saved: 'Passwort gespeichert.',
+      toast_logged_in: 'Angemeldet.',
+      toast_logged_out: 'Abgemeldet.',
       toast_opml_imported: '{feeds} Feeds in {categories} neuen Rubriken übernommen ({skipped} übersprungen).',
       confirm_restore: 'Die Sicherung ersetzt alle vorhandenen Rubriken, Feeds und Artikel. Fortfahren?',
       toast_restored: 'Wiederhergestellt: {categories} Rubriken, {feeds} Feeds, {articles} Artikel.',
@@ -249,11 +264,26 @@
       ai_briefing_title: 'Сводка за последние 24 часа',
       ai_briefing_empty: 'Нет непрочитанных статей для сводки.',
       data_label: 'Данные',
+      account_label: 'Доступ',
       opml_export: 'Экспорт OPML',
       opml_import: 'Импорт OPML',
       backup_export: 'Сохранить копию',
       backup_import: 'Восстановить из копии',
       logout: 'Выйти',
+      login: 'Войти',
+      login_title: 'Вход',
+      login_hint: 'Редактирование рубрик и лент защищено паролем.',
+      password_placeholder: 'Пароль',
+      password_set: 'Задать пароль',
+      password_change: 'Сменить пароль',
+      password_current: 'Текущий пароль',
+      password_new: 'Новый пароль',
+      password_repeat: 'Повторите новый пароль',
+      password_hint: 'С паролем чтение остаётся открытым для всех, а редактирование требует входа.',
+      password_mismatch: 'Пароли не совпадают.',
+      toast_password_saved: 'Пароль сохранён.',
+      toast_logged_in: 'Вы вошли.',
+      toast_logged_out: 'Вы вышли.',
       toast_opml_imported: 'Добавлено лент: {feeds}, новых рубрик: {categories}, пропущено: {skipped}.',
       confirm_restore: 'Копия заменит все рубрики, ленты и статьи. Продолжить?',
       toast_restored: 'Восстановлено: рубрик {categories}, лент {feeds}, статей {articles}.',
@@ -289,6 +319,7 @@
     savedResults: [],
     riverView: false,      // „Alle Artikel"-Ansicht (chronologisch über alle Rubriken)
     features: {},          // vom Server gemeldete optionale Funktionen (KI, Teilen, Login)
+    authenticated: true,   // fürs Bearbeiten angemeldet (ohne Passwort immer wahr)
     selectedId: null,      // per Tastatur ausgewählter Artikel
     extra: new Map(),      // Artikel-ID → nachgeladener Text (Volltext, KI)
     busy: new Set(),       // Artikel-IDs mit laufender Aktion
@@ -338,6 +369,8 @@
   const btnOpmlImport = document.getElementById('btn-opml-import');
   const btnRestore = document.getElementById('btn-restore');
   const btnLogout = document.getElementById('btn-logout');
+  const btnLogin = document.getElementById('btn-login');
+  const btnPassword = document.getElementById('btn-password');
   const btnBriefing = document.getElementById('btn-briefing');
   const settingsAi = document.getElementById('settings-ai');
   const settingsAccount = document.getElementById('settings-account');
@@ -458,9 +491,11 @@
     let data = null;
     try { data = await response.json(); } catch { /* leere Antwort */ }
     if (!response.ok) {
-      // Sitzung abgelaufen oder Zugangsschutz neu eingeschaltet
-      if (response.status === 401 && data && data.login_required) {
-        location.replace('/login');
+      // Sitzung abgelaufen oder Passwort inzwischen gesetzt — nicht die Seite
+      // verlassen, nur nach dem Passwort fragen. Gelesen wird ja weiterhin.
+      if (response.status === 401 && data && data.login_required && path !== '/api/login') {
+        state.authenticated = false;
+        openLoginSheet();
       }
       throw new Error((data && data.error) || `Fehler ${response.status}`);
     }
@@ -926,7 +961,7 @@
     state.loading = true;
     try {
       state.board = await api('/api/board');
-      applyFeatures(state.board.features || {});
+      applyFeatures(state.board.features || {}, state.board.authenticated);
       render();
       lastUpdatedEl.textContent = new Date().toLocaleTimeString(locale(), {
         hour: '2-digit', minute: '2-digit',
@@ -1149,12 +1184,23 @@
 
   // Optionale Funktionen (KI, Teilen, Login) ------------------------------------
 
-  function applyFeatures(features) {
-    const changed = JSON.stringify(features) !== JSON.stringify(state.features);
+  function applyFeatures(features, authenticated) {
     state.features = features;
+    state.authenticated = authenticated !== false;
     settingsAi.hidden = !features.ai;
-    settingsAccount.hidden = !features.auth;
-    return changed;
+
+    // Lesen ist immer frei. Der Zugang-Bereich zeigt daher nur, was gerade
+    // möglich ist: anmelden, Passwort setzen/ändern, abmelden.
+    const locked = !!features.auth && !state.authenticated;
+    btnLogin.hidden = !locked;
+    btnLogout.hidden = !features.auth || locked;
+    btnPassword.hidden = locked;
+    btnPassword.textContent = features.auth ? t('password_change') : t('password_set');
+  }
+
+  // Bearbeiten ist geschützt, sobald ein Passwort gesetzt ist
+  function needsLogin() {
+    return !!state.features.auth && !state.authenticated;
   }
 
   // Volltext, KI-Kurzfassung und Übersetzung ------------------------------------
@@ -1213,10 +1259,7 @@
   // Tages-Briefing im Vorschau-Sheet zeigen
   async function showBriefing() {
     setSettingsOpen(false);
-    previewSheetCard.innerHTML = `<div class="sheet-body"><p class="sheet-summary">${esc(t('action_loading'))}</p></div>`;
-    previewSheet.hidden = false;
-    previewSheet.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('sheet-open');
+    openSheet(`<div class="sheet-body"><p class="sheet-summary">${esc(t('action_loading'))}</p></div>`);
     try {
       const data = await api('/api/ai/briefing', {
         method: 'POST',
@@ -1279,10 +1322,96 @@
   }
 
   async function logout() {
+    setSettingsOpen(false);
     try {
       await api('/api/logout', { method: 'POST' });
-    } catch { /* egal — die Seite wird ohnehin neu geladen */ }
-    location.replace('/login');
+      toast(t('toast_logged_out'));
+    } catch (error) {
+      toast(error.message, true);
+    }
+    setEditMode(false);
+    await loadBoard();
+  }
+
+  // Anmelden und Passwort setzen ------------------------------------------------
+
+  function openSheet(html) {
+    previewSheetCard.innerHTML = html;
+    previewSheet.hidden = false;
+    previewSheet.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('sheet-open');
+    previewSheetCard.querySelector('input')?.focus();
+  }
+
+  // Was nach erfolgreicher Anmeldung passieren soll (z. B. Edit-Modus öffnen)
+  let afterLogin = null;
+
+  function openLoginSheet(next = null) {
+    afterLogin = next;
+    setSettingsOpen(false);
+    openSheet(`
+      <div class="sheet-body">
+        <h3 class="sheet-title">${esc(t('login_title'))}</h3>
+        <p class="sheet-summary">${esc(t('login_hint'))}</p>
+        <form class="sheet-form" data-action="login-submit">
+          <input type="password" name="password" autocomplete="current-password"
+                 placeholder="${esc(t('password_placeholder'))}" required>
+          <div class="sheet-actions">
+            <button type="submit" class="btn btn-accent">${esc(t('login'))}</button>
+            <button type="button" class="btn" data-action="sheet-close">${esc(t('cancel'))}</button>
+          </div>
+        </form>
+      </div>`);
+  }
+
+  function openPasswordSheet() {
+    setSettingsOpen(false);
+    const existing = state.features.auth;
+    openSheet(`
+      <div class="sheet-body">
+        <h3 class="sheet-title">${esc(existing ? t('password_change') : t('password_set'))}</h3>
+        <p class="sheet-summary">${esc(t('password_hint'))}</p>
+        <form class="sheet-form" data-action="password-submit">
+          ${existing
+            ? `<input type="password" name="current" autocomplete="current-password"
+                      placeholder="${esc(t('password_current'))}" required>`
+            : ''}
+          <input type="password" name="next" autocomplete="new-password"
+                 placeholder="${esc(t('password_new'))}" minlength="6" required>
+          <input type="password" name="repeat" autocomplete="new-password"
+                 placeholder="${esc(t('password_repeat'))}" minlength="6" required>
+          <div class="sheet-actions">
+            <button type="submit" class="btn btn-accent">${esc(t('save'))}</button>
+            <button type="button" class="btn" data-action="sheet-close">${esc(t('cancel'))}</button>
+          </div>
+        </form>
+      </div>`);
+  }
+
+  async function submitLogin(form) {
+    const password = form.elements.password.value;
+    await api('/api/login', { method: 'POST', body: JSON.stringify({ password }) });
+    closePreviewSheet();
+    toast(t('toast_logged_in'));
+    await loadBoard();
+    const next = afterLogin;
+    afterLogin = null;
+    if (next) next();
+  }
+
+  async function submitPassword(form) {
+    const next = form.elements.next.value;
+    if (next !== form.elements.repeat.value) throw new Error(t('password_mismatch'));
+    await api('/api/password', {
+      method: 'POST',
+      body: JSON.stringify({
+        current: form.elements.current ? form.elements.current.value : '',
+        next,
+      }),
+    });
+    closePreviewSheet();
+    toast(t('toast_password_saved'));
+    await loadBoard();
   }
 
   // Suche ----------------------------------------------------------------------
@@ -1841,8 +1970,13 @@
 
   btnRefresh.addEventListener('click', refreshAll);
   btnEdit.addEventListener('click', () => {
-    setEditMode(!state.editMode);
     setSettingsOpen(false);
+    // Bearbeiten verlangt eine Anmeldung, sobald ein Passwort gesetzt ist
+    if (!state.editMode && needsLogin()) {
+      openLoginSheet(() => setEditMode(true));
+      return;
+    }
+    setEditMode(!state.editMode);
   });
   btnLang.addEventListener('click', () => setLang(state.lang === 'de' ? 'ru' : 'de'));
 
@@ -1870,6 +2004,8 @@
   // Zahnrad: KI, Daten, Abmelden
   btnBriefing.addEventListener('click', showBriefing);
   btnLogout.addEventListener('click', logout);
+  btnLogin.addEventListener('click', () => openLoginSheet());
+  btnPassword.addEventListener('click', openPasswordSheet);
   btnOpmlImport.addEventListener('click', () => opmlFileInput.click());
   btnRestore.addEventListener('click', () => backupFileInput.click());
 
@@ -1989,6 +2125,24 @@
   // Vorschau-Sheet schließen (Backdrop, Schließen-Button, „Öffnen"-Link)
   previewSheet.addEventListener('click', (event) => {
     if (event.target.closest('[data-action="sheet-close"]')) closePreviewSheet();
+  });
+
+  // Anmelde- und Passwort-Formular im Sheet
+  previewSheet.addEventListener('submit', async (event) => {
+    const form = event.target.closest('form[data-action]');
+    if (!form) return;
+    event.preventDefault();
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) submit.disabled = true;
+    try {
+      if (form.dataset.action === 'login-submit') await submitLogin(form);
+      if (form.dataset.action === 'password-submit') await submitPassword(form);
+    } catch (error) {
+      toast(error.message, true);
+      form.querySelector('input')?.select();
+    } finally {
+      if (submit) submit.disabled = false;
+    }
   });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !previewSheet.hidden) closePreviewSheet();

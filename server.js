@@ -34,7 +34,8 @@ const LOGO_MAX_LENGTH = 1_500_000; // ~1,1 MB Bilddaten als data:-URI
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 // ---------------------------------------------------------------------------
-// Zugangsschutz (nur aktiv, wenn FEEDBOARD_PASSWORD gesetzt ist)
+// Zugangsschutz: Lesen ist immer frei, geschützt sind nur Eingriffe.
+// Die einzelnen Routen hängen dafür weiter unten `auth.protect` davor.
 // ---------------------------------------------------------------------------
 
 app.set('trust proxy', true); // damit req.ip hinter einem Reverse Proxy stimmt
@@ -53,8 +54,19 @@ app.post('/api/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-// Muss vor der Auslieferung von index.html und public/ stehen
-app.use(auth.middleware);
+// Passwort setzen oder ändern. Das erste Passwort darf jeder setzen — danach
+// nur noch, wer das alte kennt (geprüft in auth.setPassword).
+app.post('/api/password', (req, res) => {
+  try {
+    auth.setPassword(req, res, {
+      current: String(req.body?.current || ''),
+      next: String(req.body?.next || ''),
+    });
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
 
 app.get('/login', (req, res) => {
   if (!auth.isEnabled() || auth.isLoggedIn(req)) return res.redirect('/');
@@ -143,6 +155,7 @@ app.get('/api/board', (req, res) => {
     refreshing: fetcher.isRefreshing(),
     fetch_interval_minutes: FETCH_INTERVAL_MINUTES,
     features: features(),
+    authenticated: auth.isLoggedIn(req),
   });
 });
 
@@ -161,7 +174,7 @@ app.get('/api/stats', (req, res) => {
 // API: Rubriken
 // ---------------------------------------------------------------------------
 
-app.post('/api/categories', asyncHandler(async (req, res) => {
+app.post('/api/categories', auth.protect, asyncHandler(async (req, res) => {
   const name = String(req.body?.name || '').trim();
   if (!name) throw new Error('Bitte einen Namen für die Rubrik angeben.');
   if (name.length > 80) throw new Error('Der Rubrikname ist zu lang (max. 80 Zeichen).');
@@ -169,7 +182,7 @@ app.post('/api/categories', asyncHandler(async (req, res) => {
   res.status(201).json(store.createCategory(name, slug));
 }));
 
-app.patch('/api/categories/:id', asyncHandler(async (req, res) => {
+app.patch('/api/categories/:id', auth.protect, asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
   if (!store.getCategory(id)) throw new Error('Rubrik nicht gefunden.');
   const name = String(req.body?.name || '').trim();
@@ -179,7 +192,7 @@ app.patch('/api/categories/:id', asyncHandler(async (req, res) => {
   res.json(store.renameCategory(id, name, slug));
 }));
 
-app.put('/api/categories/:id/logo', asyncHandler(async (req, res) => {
+app.put('/api/categories/:id/logo', auth.protect, asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
   if (!store.getCategory(id)) throw new Error('Rubrik nicht gefunden.');
   const logo = String(req.body?.logo || '');
@@ -192,20 +205,20 @@ app.put('/api/categories/:id/logo', asyncHandler(async (req, res) => {
   res.json(store.setCategoryLogo(id, logo));
 }));
 
-app.delete('/api/categories/:id/logo', asyncHandler(async (req, res) => {
+app.delete('/api/categories/:id/logo', auth.protect, asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
   if (!store.getCategory(id)) throw new Error('Rubrik nicht gefunden.');
   res.json(store.setCategoryLogo(id, null));
 }));
 
-app.delete('/api/categories/:id', asyncHandler(async (req, res) => {
+app.delete('/api/categories/:id', auth.protect, asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
   if (!store.getCategory(id)) throw new Error('Rubrik nicht gefunden.');
   store.deleteCategory(id);
   res.json({ ok: true });
 }));
 
-app.post('/api/categories/reorder', asyncHandler(async (req, res) => {
+app.post('/api/categories/reorder', auth.protect, asyncHandler(async (req, res) => {
   store.reorderCategories(requireIdArray(req.body?.ids));
   res.json({ ok: true });
 }));
@@ -214,7 +227,7 @@ app.post('/api/categories/reorder', asyncHandler(async (req, res) => {
 // API: Feeds
 // ---------------------------------------------------------------------------
 
-app.post('/api/feeds', asyncHandler(async (req, res) => {
+app.post('/api/feeds', auth.protect, asyncHandler(async (req, res) => {
   const categoryId = parseId(req.body?.category_id);
   const url = String(req.body?.url || '').trim();
   const name = req.body?.name ? String(req.body.name).trim() : null;
@@ -223,7 +236,7 @@ app.post('/api/feeds', asyncHandler(async (req, res) => {
   res.status(201).json(feed);
 }));
 
-app.patch('/api/feeds/:id', asyncHandler(async (req, res) => {
+app.patch('/api/feeds/:id', auth.protect, asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
   if (!store.getFeed(id)) throw new Error('Feed nicht gefunden.');
 
@@ -240,14 +253,14 @@ app.patch('/api/feeds/:id', asyncHandler(async (req, res) => {
   res.json(store.getFeed(id));
 }));
 
-app.delete('/api/feeds/:id', asyncHandler(async (req, res) => {
+app.delete('/api/feeds/:id', auth.protect, asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
   if (!store.getFeed(id)) throw new Error('Feed nicht gefunden.');
   store.deleteFeed(id);
   res.json({ ok: true });
 }));
 
-app.post('/api/feeds/reorder', asyncHandler(async (req, res) => {
+app.post('/api/feeds/reorder', auth.protect, asyncHandler(async (req, res) => {
   store.reorderFeeds(requireIdArray(req.body?.ids));
   res.json({ ok: true });
 }));
@@ -262,7 +275,7 @@ app.get('/api/opml', (req, res) => {
   res.type('application/xml').send(opml.buildOpml());
 });
 
-app.post('/api/opml', asyncHandler(async (req, res) => {
+app.post('/api/opml', auth.protect, asyncHandler(async (req, res) => {
   const xml = String(req.body?.xml || '');
   if (!xml.trim()) throw new Error('Bitte eine OPML-Datei auswählen.');
   const result = opml.importOpml(xml);
@@ -346,7 +359,7 @@ function requireAi() {
   if (!ai.isEnabled()) throw new Error('Die KI-Funktionen sind nicht eingerichtet.');
 }
 
-app.post('/api/articles/:id/ai/summary', asyncHandler(async (req, res) => {
+app.post('/api/articles/:id/ai/summary', auth.protect, asyncHandler(async (req, res) => {
   requireAi();
   const id = parseId(req.params.id);
   const article = requireArticle(id);
@@ -358,7 +371,7 @@ app.post('/api/articles/:id/ai/summary', asyncHandler(async (req, res) => {
   res.json({ summary, cached: false });
 }));
 
-app.post('/api/articles/:id/ai/translate', asyncHandler(async (req, res) => {
+app.post('/api/articles/:id/ai/translate', auth.protect, asyncHandler(async (req, res) => {
   requireAi();
   const id = parseId(req.params.id);
   const article = requireArticle(id);
@@ -373,7 +386,7 @@ app.post('/api/articles/:id/ai/translate', asyncHandler(async (req, res) => {
 }));
 
 // Das Briefing wird pro Tag und Sprache einmal erzeugt und dann wiederverwendet
-app.post('/api/ai/briefing', asyncHandler(async (req, res) => {
+app.post('/api/ai/briefing', auth.protect, asyncHandler(async (req, res) => {
   requireAi();
   const lang = ['de', 'ru', 'en'].includes(req.body?.lang) ? req.body.lang : 'de';
   const hours = Number(req.body?.hours) || 24;
@@ -400,7 +413,7 @@ app.post('/api/ai/briefing', asyncHandler(async (req, res) => {
 // API: Artikel per Telegram teilen
 // ---------------------------------------------------------------------------
 
-app.post('/api/articles/:id/share/telegram', asyncHandler(async (req, res) => {
+app.post('/api/articles/:id/share/telegram', auth.protect, asyncHandler(async (req, res) => {
   const article = requireArticle(parseId(req.params.id));
   await telegram.shareArticle({
     title: article.title,
@@ -415,13 +428,13 @@ app.post('/api/articles/:id/share/telegram', asyncHandler(async (req, res) => {
 // API: Backup & Wiederherstellung
 // ---------------------------------------------------------------------------
 
-app.get('/api/backup', (req, res) => {
+app.get('/api/backup', auth.protect, (req, res) => {
   const stamp = new Date().toISOString().slice(0, 10);
   res.set('Content-Disposition', `attachment; filename="feedboard-backup-${stamp}.json"`);
   res.json(store.exportBackup());
 });
 
-app.post('/api/restore', restoreBodyParser, asyncHandler(async (req, res) => {
+app.post('/api/restore', auth.protect, restoreBodyParser, asyncHandler(async (req, res) => {
   const result = store.importBackup(req.body);
   res.json(result);
 }));
@@ -434,7 +447,7 @@ app.get('/api/settings/mute', (req, res) => {
   res.json({ words: store.getMuteWords() });
 });
 
-app.put('/api/settings/mute', asyncHandler(async (req, res) => {
+app.put('/api/settings/mute', auth.protect, asyncHandler(async (req, res) => {
   res.json({ words: store.setMuteWords(req.body?.words ?? []) });
 }));
 

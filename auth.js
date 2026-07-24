@@ -1,27 +1,60 @@
-// auth.js — Zugangsschutz mit Passwort und signiertem Session-Cookie
+// auth.js — Zugangsschutz fürs Bearbeiten
 //
-// Ohne FEEDBOARD_PASSWORD bleibt alles offen wie bisher — bestehende
-// Installationen ändern sich durch ein Update also nicht.
+// Gelesen werden darf immer. Geschützt sind nur Eingriffe: Rubriken und Feeds
+// ändern, Import, Wiederherstellung, Einstellungen — und alles, was Geld kostet
+// oder nach außen geht (KI, Teilen).
+//
+// Das Passwort liegt als scrypt-Hash in der settings-Tabelle. FEEDBOARD_PASSWORD
+// legt es beim ersten Start an; danach gilt, was im Menü gesetzt wurde.
 'use strict';
 
 const crypto = require('node:crypto');
 
 const store = require('./db');
 
-const PASSWORD = process.env.FEEDBOARD_PASSWORD || '';
+const ENV_PASSWORD = process.env.FEEDBOARD_PASSWORD || '';
 const COOKIE_NAME = 'feedboard_session';
 const SESSION_DAYS = 30;
 const MAX_ATTEMPTS = 10;
 const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+const MIN_PASSWORD_LENGTH = 6;
 
-function isEnabled() {
-  return PASSWORD.length > 0;
+// ---------------------------------------------------------------------------
+// Passwort
+// ---------------------------------------------------------------------------
+
+function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
+  const hash = crypto.scryptSync(String(password), salt, 32).toString('hex');
+  return `scrypt$${salt}$${hash}`;
 }
 
-// Schlüssel zum Signieren der Cookies: aus der Umgebung oder einmalig erzeugt
-// und in der Datenbank abgelegt. So überleben Sessions einen Neustart.
+function verifyPassword(password, stored) {
+  const parts = String(stored || '').split('$');
+  if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
+  const expected = Buffer.from(parts[2], 'hex');
+  const actual = crypto.scryptSync(String(password), parts[1], expected.length);
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+}
+
+// Beim ersten Start aus der Umgebungsvariable übernehmen. Danach hat das im
+// Menü gesetzte Passwort Vorrang — FEEDBOARD_PASSWORD wird nicht mehr gelesen.
+function seedFromEnv() {
+  if (!ENV_PASSWORD) return;
+  if (store.getSetting('password_hash')) return;
+  store.setSetting('password_hash', hashPassword(ENV_PASSWORD));
+}
+
+seedFromEnv();
+
+function isEnabled() {
+  return !!store.getSetting('password_hash');
+}
+
+// ---------------------------------------------------------------------------
+// Session-Cookie
+// ---------------------------------------------------------------------------
+
 function sessionSecret() {
-  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
   let secret = store.getSetting('session_secret');
   if (!secret) {
     secret = crypto.randomBytes(32).toString('hex');
@@ -32,14 +65,6 @@ function sessionSecret() {
 
 function sign(value) {
   return crypto.createHmac('sha256', sessionSecret()).update(value).digest('hex');
-}
-
-// Beide Seiten erst hashen: timingSafeEqual verlangt gleiche Länge, und die
-// Länge des Passworts soll nicht durchsickern.
-function safeEqual(a, b) {
-  const digestA = crypto.createHash('sha256').update(String(a)).digest();
-  const digestB = crypto.createHash('sha256').update(String(b)).digest();
-  return crypto.timingSafeEqual(digestA, digestB);
 }
 
 function createToken() {
@@ -71,8 +96,8 @@ function readCookie(req, name) {
 }
 
 function setSessionCookie(req, res) {
-  // Secure nur setzen, wenn die Verbindung wirklich verschlüsselt ist —
-  // sonst verwirft der Browser das Cookie im lokalen Netz per http.
+  // Secure nur bei wirklich verschlüsselter Verbindung — sonst verwirft der
+  // Browser das Cookie im Heimnetz per http.
   const secure = req.secure || req.headers['x-forwarded-proto'] === 'https';
   res.append('Set-Cookie', [
     `${COOKIE_NAME}=${createToken()}`,
@@ -88,13 +113,18 @@ function clearSessionCookie(res) {
   res.append('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`);
 }
 
+// Ohne gesetztes Passwort ist niemand ausgesperrt
 function isLoggedIn(req) {
   if (!isEnabled()) return true;
   return isValidToken(readCookie(req, COOKIE_NAME));
 }
 
-// Einfache Bremse gegen Durchprobieren: pro Absender-IP zehn Fehlversuche
-// je Viertelstunde.
+// ---------------------------------------------------------------------------
+// Anmelden, abmelden, Passwort ändern
+// ---------------------------------------------------------------------------
+
+// Einfache Bremse gegen Durchprobieren: zehn Fehlversuche je Absender-IP
+// und Viertelstunde.
 const attempts = new Map();
 
 function tooManyAttempts(ip) {
@@ -116,16 +146,21 @@ function noteFailure(ip) {
   entry.count += 1;
 }
 
-function login(req, res, password) {
+function checkPassword(req, password) {
   const ip = req.ip || 'unbekannt';
   if (tooManyAttempts(ip)) {
     throw new Error('Zu viele Fehlversuche. Bitte in 15 Minuten erneut versuchen.');
   }
-  if (!password || !safeEqual(password, PASSWORD)) {
+  if (!password || !verifyPassword(password, store.getSetting('password_hash'))) {
     noteFailure(ip);
     throw new Error('Falsches Passwort.');
   }
   attempts.delete(ip);
+}
+
+function login(req, res, password) {
+  if (!isEnabled()) throw new Error('Es ist kein Passwort eingerichtet.');
+  checkPassword(req, password);
   setSessionCookie(req, res);
 }
 
@@ -133,17 +168,38 @@ function logout(res) {
   clearSessionCookie(res);
 }
 
-// Ohne Anmeldung erreichbar: die Login-Seite selbst und ihre Anmelde-Route
-const PUBLIC_PATHS = new Set(['/login', '/login.html', '/api/login', '/manifest.webmanifest', '/icon.svg']);
-
-function middleware(req, res, next) {
-  if (!isEnabled() || PUBLIC_PATHS.has(req.path) || isLoggedIn(req)) return next();
-
-  // Für die API eine klare Fehlermeldung, für Seitenaufrufe die Login-Seite
-  if (req.path.startsWith('/api/')) {
-    return res.status(401).json({ error: 'Nicht angemeldet.', login_required: true });
+// Passwort setzen oder ändern. Ist noch keines eingerichtet, darf jeder das
+// erste setzen — danach nur noch, wer das alte kennt.
+function setPassword(req, res, { current, next }) {
+  const password = String(next || '');
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`Das Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen haben.`);
   }
-  return res.redirect('/login');
+  if (isEnabled()) checkPassword(req, current);
+
+  store.setSetting('password_hash', hashPassword(password));
+  // Anderen Sitzungen den Zugang entziehen, die eigene erneuern
+  store.setSetting('session_secret', crypto.randomBytes(32).toString('hex'));
+  setSessionCookie(req, res);
 }
 
-module.exports = { isEnabled, isLoggedIn, login, logout, middleware, COOKIE_NAME };
+// ---------------------------------------------------------------------------
+// Schutz einzelner Routen
+// ---------------------------------------------------------------------------
+
+// Vor jede Route hängen, die etwas verändert oder etwas kostet.
+function protect(req, res, next) {
+  if (isLoggedIn(req)) return next();
+  res.status(401).json({ error: 'Zum Bearbeiten bitte anmelden.', login_required: true });
+}
+
+module.exports = {
+  isEnabled,
+  isLoggedIn,
+  login,
+  logout,
+  setPassword,
+  protect,
+  MIN_PASSWORD_LENGTH,
+  COOKIE_NAME,
+};

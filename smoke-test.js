@@ -48,6 +48,7 @@ const boardData = {
   refreshing: false,
   fetch_interval_minutes: 30,
   features: { ai: true, telegram_share: true, auth: true },
+  authenticated: true,
 };
 
 async function run() {
@@ -128,7 +129,11 @@ async function run() {
   check('KI-Aktionen bei aktiver Funktion', !!doc.querySelector('.article[data-article-id="100"] [data-action="article-ai-summary"]'));
   check('Teilen-Aktion bei aktiver Funktion', !!doc.querySelector('.article[data-article-id="100"] [data-action="article-share"]'));
   check('Zahnrad: KI-Bereich sichtbar', !doc.getElementById('settings-ai').hidden);
-  check('Zahnrad: Abmelden sichtbar', !doc.getElementById('settings-account').hidden);
+  check('Zugang: angemeldet → Abmelden und Passwort ändern',
+    !doc.getElementById('btn-logout').hidden
+    && !doc.getElementById('btn-password').hidden
+    && doc.getElementById('btn-login').hidden);
+  check('Zugang: Knopf heißt „Passwort ändern"', doc.getElementById('btn-password').textContent.includes('ändern'));
   check('Tastaturübersicht gefüllt', doc.querySelectorAll('#shortcut-list .shortcut').length >= 8);
 
   // j wählt den ersten Artikel aus, k geht wieder zurück
@@ -150,6 +155,28 @@ async function run() {
   doc.getElementById('btn-river').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 20));
   check('Alle Artikel: zurück zur Rubrikansicht', !!doc.querySelector('.feed[data-feed-id="10"]'));
+
+  // Nicht angemeldet: lesen geht, bearbeiten fragt nach dem Passwort
+  window.fetch = async (url) => {
+    if (String(url).includes('/api/board')) {
+      return { ok: true, status: 200, json: async () => ({ ...structuredClone(boardData), authenticated: false }) };
+    }
+    return { ok: true, status: 200, json: async () => ({ ok: true }) };
+  };
+  doc.getElementById('btn-refresh').dispatchEvent(new window.Event('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 50));
+
+  check('Zugang: abgemeldet → Anmelden sichtbar',
+    !doc.getElementById('btn-login').hidden
+    && doc.getElementById('btn-logout').hidden
+    && doc.getElementById('btn-password').hidden);
+  check('Lesen bleibt ohne Anmeldung möglich', !!doc.querySelector('.category-tile, .feed'));
+
+  doc.getElementById('btn-edit').dispatchEvent(new window.Event('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 20));
+  check('Bearbeiten öffnet den Anmelde-Dialog', !!doc.querySelector('form[data-action="login-submit"]'));
+  check('Bearbeiten bleibt bis dahin gesperrt', !doc.body.classList.contains('edit-mode'));
+  doc.querySelector('[data-action="sheet-close"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 
   // Empty-State testen
   window.fetch = async () => ({ ok: true, status: 200, json: async () => ({ categories: [], refreshing: false, fetch_interval_minutes: 30 }) });
