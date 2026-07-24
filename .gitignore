@@ -6,3 +6,4 @@ data/favicons/
 .env
 *.log
 .playwright-mcp/
+data/backups/
