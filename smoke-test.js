@@ -13,6 +13,7 @@ const boardData = {
     {
       id: 1,
       name: 'Tech <script>alert(1)</script>',
+      slug: 'tech',
       feeds: [
         {
           id: 10,
@@ -55,7 +56,15 @@ async function run() {
   const { window } = dom;
 
   // Browser-APIs mocken, die jsdom nicht mitbringt
-  window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
+  // Die Systemeinstellung ist über systemDark/fireMediaChange steuerbar (Theme-Test)
+  let systemDark = false;
+  const mediaListeners = [];
+  const fireMediaChange = () => mediaListeners.forEach((fn) => fn({ matches: systemDark }));
+  window.matchMedia = (query) => ({
+    get matches() { return String(query).includes('dark') ? systemDark : false; },
+    addEventListener(type, fn) { if (type === 'change') mediaListeners.push(fn); },
+    removeEventListener() {},
+  });
   window.fetch = async (url) => {
     if (String(url).includes('/api/board')) {
       return { ok: true, status: 200, json: async () => structuredClone(boardData) };
@@ -80,8 +89,14 @@ async function run() {
   };
 
   check('Keine JS-Fehler beim Init', errors.length === 0);
-  check('Rubrik-Karte gerendert', !!doc.querySelector('.category[data-category-id="1"]'));
-  check('XSS im Rubriknamen escaped', !doc.querySelector('.category-title script') && doc.querySelector('.category-title').textContent.includes('<script>'));
+  check('Rubrik-Kachel auf der Startseite', !!doc.querySelector('.category-tile[data-category-id="1"]'));
+  check('XSS im Rubriknamen escaped', !doc.querySelector('.category-tile-name script') && doc.querySelector('.category-tile-name').textContent.includes('<script>'));
+
+  // In die Rubrik wechseln — Feeds und Artikel gibt es nur in der Detailansicht
+  doc.querySelector('.category-tile[data-category-id="1"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 30));
+
+  check('Rubrik-Detailansicht geöffnet', !!doc.querySelector('.category-open[data-category-id="1"]'));
   check('Feed gerendert', !!doc.querySelector('.feed[data-feed-id="10"]'));
   check('Fehler-Badge bei kaputtem Feed', !!doc.querySelector('.feed[data-feed-id="11"] .feed-error'));
   check('Nur 8 Artikel sichtbar (von 12)', doc.querySelectorAll('.feed[data-feed-id="10"] .article').length === 8);
@@ -108,6 +123,40 @@ async function run() {
   doc.getElementById('btn-refresh').dispatchEvent(new window.Event('click', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 50));
   check('Empty-State gerendert', !!doc.querySelector('.board-empty'));
+
+  // Theme: System-Modus, Live-Wechsel und feste Auswahl
+  const themeSegBtn = (pref) => doc.querySelector(`#seg-theme [data-theme-pref="${pref}"]`);
+  const clickEl = (el) => el.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+
+  const themeColorMedia = (variant) => doc.querySelector(`meta[data-theme-color="${variant}"]`).getAttribute('media');
+
+  check('Theme: „System" ist Standard', themeSegBtn('system').classList.contains('active'));
+  check('Theme: System hell → data-theme=light', doc.documentElement.dataset.theme === 'light');
+  check('Leistenfarbe: bei „System" entscheiden die media-Abfragen',
+    themeColorMedia('light') === '(prefers-color-scheme: light)' && themeColorMedia('dark') === '(prefers-color-scheme: dark)');
+
+  systemDark = true;
+  fireMediaChange();
+  check('Theme: Systemwechsel wird live übernommen', doc.documentElement.dataset.theme === 'dark');
+
+  clickEl(themeSegBtn('light'));
+  check('Theme: feste Auswahl „Hell" gesetzt', doc.documentElement.dataset.theme === 'light' && themeSegBtn('light').classList.contains('active'));
+  systemDark = false;
+  fireMediaChange();
+  systemDark = true;
+  fireMediaChange();
+  check('Theme: feste Auswahl ignoriert Systemwechsel', doc.documentElement.dataset.theme === 'light');
+  check('Theme: Auswahl gespeichert', window.localStorage.getItem('feedboard-theme') === 'light');
+  check('Leistenfarbe: feste Auswahl schaltet helle Variante fest',
+    themeColorMedia('light') === 'all' && themeColorMedia('dark') === 'not all');
+
+  clickEl(doc.getElementById('btn-theme'));
+  check('Theme: Knopf schaltet auf dunkel', doc.documentElement.dataset.theme === 'dark' && themeSegBtn('dark').classList.contains('active'));
+  check('Leistenfarbe: folgt dem Knopf auf dunkel',
+    themeColorMedia('dark') === 'all' && themeColorMedia('light') === 'not all');
+
+  clickEl(themeSegBtn('system'));
+  check('Theme: zurück auf „System" folgt wieder dem System', doc.documentElement.dataset.theme === 'dark' && window.localStorage.getItem('feedboard-theme') === 'system');
 
   console.log(results.join('\n'));
   console.log(errors.length ? `\nJS-Fehler: ${errors.map(String).join(' | ')}` : '\nAlle Smoke-Tests abgeschlossen.');

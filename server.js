@@ -39,13 +39,21 @@ function assetVersion() {
   }
 }
 
+// Im Normalbetrieb einmal beim Start ermitteln. Mit DEV_ASSETS=1 (public/ als Bind-Mount
+// eingehängt) bei jedem Aufruf neu, damit geänderte Dateien sofort eine neue Version bekommen.
+const DEV_ASSETS = process.env.DEV_ASSETS === '1';
 const ASSET_VERSION = assetVersion();
 
+function currentAssetVersion() {
+  return DEV_ASSETS ? assetVersion() : ASSET_VERSION;
+}
+
 app.get(['/', '/index.html'], (req, res) => {
+  const version = currentAssetVersion();
   let html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
   html = html
-    .replace('href="style.css"', `href="style.css?v=${ASSET_VERSION}"`)
-    .replace('src="app.js"', `src="app.js?v=${ASSET_VERSION}"`);
+    .replace('href="style.css"', `href="style.css?v=${version}"`)
+    .replace('src="app.js"', `src="app.js?v=${version}"`);
   res.set('Cache-Control', 'no-cache');
   res.type('html').send(html);
 });

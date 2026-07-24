@@ -4,7 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Feedboard</title>
-  <meta name="theme-color" content="#b3341e">
+  <!-- Farbe der Browser-/System-Leiste = Masthead-Hintergrund (--surface); app.js koppelt sie an die Design-Auswahl -->
+  <meta name="theme-color" content="#fffdf8" media="(prefers-color-scheme: light)" data-theme-color="light">
+  <meta name="theme-color" content="#1e1a15" media="(prefers-color-scheme: dark)" data-theme-color="dark">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -54,6 +56,15 @@
                   <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
                   <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
                 </button>
+              </div>
+
+              <div class="settings-row">
+                <span class="settings-label" data-i18n="theme_label">Design</span>
+                <div class="seg" id="seg-theme">
+                  <button type="button" data-theme-pref="light" class="seg-btn" data-i18n="theme_light">Hell</button>
+                  <button type="button" data-theme-pref="dark" class="seg-btn" data-i18n="theme_dark">Dunkel</button>
+                  <button type="button" data-theme-pref="system" class="seg-btn" data-i18n="theme_system">System</button>
+                </div>
               </div>
 
               <div class="settings-row">

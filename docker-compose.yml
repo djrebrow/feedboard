@@ -6,7 +6,12 @@ services:
       - "8321:8321"
     volumes:
       - ./data:/app/data
+      # Frontend live aus dem Arbeitsverzeichnis: Änderungen an public/ wirken nach
+      # einem Reload im Browser, ohne Rebuild. Für einen reinen Produktivbetrieb
+      # diese Zeile und DEV_ASSETS entfernen (dann gilt der Stand aus dem Image).
+      - ./public:/app/public:ro
     environment:
       - TZ=Europe/Berlin
       - FETCH_INTERVAL_MINUTES=30
+      - DEV_ASSETS=1
     restart: unless-stopped

@@ -21,6 +21,10 @@
       lang_switch_title: 'Sprache wechseln',
       saved_title: 'Gespeicherte Artikel',
       saved_empty: 'Noch keine Artikel gespeichert.',
+      theme_label: 'Design',
+      theme_light: 'Hell',
+      theme_dark: 'Dunkel',
+      theme_system: 'System',
       font_size_label: 'Schriftgröße',
       density_label: 'Dichte',
       density_comfortable: 'Komfortabel',
@@ -110,6 +114,10 @@
       lang_switch_title: 'Сменить язык',
       saved_title: 'Сохранённые статьи',
       saved_empty: 'Пока нет сохранённых статей.',
+      theme_label: 'Тема',
+      theme_light: 'Светлая',
+      theme_dark: 'Тёмная',
+      theme_system: 'Система',
       font_size_label: 'Размер шрифта',
       density_label: 'Плотность',
       density_comfortable: 'Свободно',
@@ -207,6 +215,7 @@
     searchResults: [],
     savedView: false,      // „Gespeichert"-Ansicht aktiv
     savedResults: [],
+    themePref: 'system',   // 'light' | 'dark' | 'system' (System = Betriebssystem-Einstellung folgen)
     fontSize: 'normal',    // 'small' | 'normal' | 'large'
     density: 'comfortable',// 'comfortable' | 'compact'
     thumbnails: false,     // Thumbnails in der Liste
@@ -236,6 +245,8 @@
   const btnSaved = document.getElementById('btn-saved');
   const inputSearch = document.getElementById('input-search');
   const btnSearchClear = document.getElementById('btn-search-clear');
+  const metaThemeColors = document.querySelectorAll('meta[data-theme-color]');
+  const segTheme = document.getElementById('seg-theme');
   const segFontSize = document.getElementById('seg-fontsize');
   const segDensity = document.getElementById('seg-density');
   const chkThumbnails = document.getElementById('chk-thumbnails');
@@ -1537,17 +1548,53 @@
   // Theme
   // -------------------------------------------------------------------------
 
-  function applyTheme(theme) {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem('feedboard-theme', theme);
+  const THEME_PREFS = ['light', 'dark', 'system'];
+  const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+
+  // Tatsächlich sichtbares Design — bei „System" die Betriebssystem-Einstellung
+  function effectiveTheme() {
+    if (state.themePref === 'system') return darkQuery.matches ? 'dark' : 'light';
+    return state.themePref;
   }
 
-  btnTheme.addEventListener('click', () => {
-    applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  // Farbe der Browser-/System-Leiste an das sichtbare Design koppeln.
+  // Bei „System" entscheiden die media-Abfragen, sonst wird die passende Variante fest geschaltet.
+  function applyThemeColor(theme) {
+    metaThemeColors.forEach((meta) => {
+      const variant = meta.dataset.themeColor;
+      const media = state.themePref === 'system'
+        ? `(prefers-color-scheme: ${variant})`
+        : (variant === theme ? 'all' : 'not all');
+      meta.setAttribute('media', media);
+    });
+  }
+
+  function applyTheme() {
+    const theme = effectiveTheme();
+    document.documentElement.dataset.theme = theme;
+    applyThemeColor(theme);
+    segTheme.querySelectorAll('[data-theme-pref]').forEach((b) => b.classList.toggle('active', b.dataset.themePref === state.themePref));
+  }
+
+  function setTheme(pref) {
+    state.themePref = THEME_PREFS.includes(pref) ? pref : 'system';
+    localStorage.setItem('feedboard-theme', state.themePref);
+    applyTheme();
+  }
+
+  // Runder Knopf: schnelles Umschalten hell/dunkel, ausgehend vom sichtbaren Design
+  btnTheme.addEventListener('click', () => setTheme(effectiveTheme() === 'dark' ? 'light' : 'dark'));
+
+  segTheme.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-theme-pref]');
+    if (btn) setTheme(btn.dataset.themePref);
   });
 
-  const savedTheme = localStorage.getItem('feedboard-theme');
-  applyTheme(savedTheme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  // Systemwechsel live übernehmen, solange „System" gewählt ist
+  darkQuery.addEventListener('change', () => { if (state.themePref === 'system') applyTheme(); });
+
+  // Ältere Installationen haben nur 'light'/'dark' gespeichert — bleibt gültig
+  setTheme(localStorage.getItem('feedboard-theme') || 'system');
 
   // -------------------------------------------------------------------------
   // Start & Auto-Reload
