@@ -398,6 +398,37 @@ function searchArticles(query, limit = 100) {
 }
 
 // ---------------------------------------------------------------------------
+// Kennzahlen für externe Dashboards (Homepage-Widget)
+// ---------------------------------------------------------------------------
+
+// Zählt ungelesene Artikel nach derselben Logik wie getBoard(): nur die im
+// Board sichtbaren 30 Artikel je Feed, stumm geschaltete ausgenommen. Liefert
+// bewusst nur Skalare, damit das Widget nicht das komplette Board (inkl.
+// Base64-Logos) laden muss.
+function getStats() {
+  const muteLower = getMuteWords().map((w) => w.toLowerCase());
+
+  let unread = 0;
+  for (const article of getArticlesForBoard(30)) {
+    if (article.read_at) continue;
+    if (!article.starred_at && isMuted(article, muteLower)) continue;
+    unread += 1;
+  }
+
+  const counts = db.prepare(`
+    SELECT
+      (SELECT COUNT(*) FROM categories)                            AS categories,
+      (SELECT COUNT(*) FROM feeds)                                 AS feeds,
+      (SELECT COUNT(*) FROM feeds WHERE last_error IS NOT NULL)    AS failing_feeds,
+      (SELECT COUNT(*) FROM articles)                              AS articles,
+      (SELECT COUNT(*) FROM articles WHERE starred_at IS NOT NULL) AS saved,
+      (SELECT MAX(last_fetched_at) FROM feeds)                     AS last_fetched_at
+  `).get();
+
+  return { unread, ...counts };
+}
+
+// ---------------------------------------------------------------------------
 // Gesamtes Board als verschachtelte Struktur
 // ---------------------------------------------------------------------------
 
@@ -524,5 +555,6 @@ module.exports = {
   getMuteWords,
   setMuteWords,
   getBoard,
+  getStats,
   seedIfEmpty,
 };

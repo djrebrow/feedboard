@@ -90,6 +90,17 @@ app.get('/api/board', (req, res) => {
   });
 });
 
+// Schlanke Kennzahlen für externe Dashboards (z. B. Homepage-customapi-Widget).
+// Bewusst getrennt von /api/board, das mit den Base64-Logos mehrere hundert KB
+// gross ist und sich zum Pollen im Sekundentakt nicht eignet.
+app.get('/api/stats', (req, res) => {
+  res.json({
+    ...store.getStats(),
+    refreshing: fetcher.isRefreshing(),
+    fetch_interval_minutes: FETCH_INTERVAL_MINUTES,
+  });
+});
+
 // ---------------------------------------------------------------------------
 // API: Rubriken
 // ---------------------------------------------------------------------------
