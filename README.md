@@ -1,6 +1,6 @@
 # Feedboard
 
-Selbstgehostetes RSS-Dashboard im Stil von mit vollständiger Verwaltung über die Oberfläche: Rubriken und Feeds werden direkt in der UI angelegt, umbenannt, sortiert und gelöscht. Keine YAML-Konfiguration nötig.
+Selbstgehostetes RSS-Dashboard mit vollständiger Verwaltung über die Oberfläche: Rubriken und Feeds werden direkt in der UI angelegt, umbenannt, sortiert und gelöscht. Keine YAML-Konfiguration nötig.
 
 ## Funktionen
 
