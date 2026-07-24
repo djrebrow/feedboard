@@ -200,6 +200,8 @@ input[type='url']:focus {
 /* ---- Einstellungs-Panel: Zeilen, Segmente, Schalter, Textfeld ---- */
 .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .settings-section { display: flex; flex-direction: column; gap: 7px; }
+/* display: flex würde sonst das hidden-Attribut aushebeln (KI, Abmelden) */
+.settings-section[hidden] { display: none; }
 .settings-label { font-size: 12px; color: var(--muted); font-weight: 600; }
 
 .seg {
@@ -716,7 +718,7 @@ body.edit-mode .feed-tools { display: flex; }
   cursor: default;
 }
 
-.article.has-summary .article-row { cursor: pointer; }
+.article.expandable .article-row { cursor: pointer; }
 
 .article-time {
   font-size: 11.5px;
@@ -1158,3 +1160,134 @@ body.font-small .article-summary { font-size: 12px; }
 body.font-large .article-title { font-size: 16px; }
 body.font-large .article-summary { font-size: 14.5px; }
 body.font-large .search-result .article-title { font-size: 16.5px; }
+
+/* ==========================================================================
+   Nachgeladener Text (Volltext/KI), Aktionen, Tastaturauswahl, Pause
+   ========================================================================== */
+
+/* Wie die Kurzfassung: erst sichtbar, wenn der Artikel aufgeklappt ist */
+.article-extra,
+.article-actions { display: none; }
+
+.article.expanded .article-extra,
+.article.expanded .article-actions,
+.search-result.expanded .article-extra,
+.search-result.expanded .article-actions { display: block; }
+
+.article-extra {
+  margin: 2px 0 8px 68px;
+  padding: 10px 12px;
+  max-height: 420px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.article-extra-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+}
+
+.article-extra-busy { color: var(--muted); font-style: italic; }
+
+.article-actions {
+  margin: 0 0 8px 68px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.article.expanded .article-actions,
+.search-result.expanded .article-actions { display: flex; }
+
+.article-action {
+  padding: 3px 9px;
+  font-size: 11.5px;
+  font-family: inherit;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.article-action:hover { color: var(--accent); border-color: var(--accent); }
+
+.search-result .article-extra,
+.search-result .article-actions { margin-left: 0; margin-top: 8px; }
+
+.search-result.expanded .search-result-summary { -webkit-line-clamp: unset; }
+.search-result .article-read { align-self: flex-start; margin-top: 3px; }
+
+@media (max-width: 480px) {
+  .article-extra,
+  .article-actions { margin-left: 0; }
+}
+
+/* Tastaturauswahl (j/k) */
+.article.selected { background: var(--accent-soft); border-radius: 6px; }
+.search-result.selected { border-color: var(--accent); }
+
+/* Pausierte Feeds */
+.feed-paused .feed-header { opacity: 0.6; }
+
+.paused-badge {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-radius: 999px;
+}
+
+/* Zahnrad: Daten-Knöpfe und Tastaturübersicht */
+.settings-buttons { display: flex; flex-direction: column; gap: 6px; }
+.settings-buttons .btn { text-align: center; text-decoration: none; }
+
+.shortcut-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.shortcut { display: contents; }
+
+.shortcut kbd {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 11px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0 5px;
+  white-space: nowrap;
+  justify-self: start;
+}
+
+/* Briefing im Sheet */
+.sheet-briefing {
+  max-height: 60vh;
+  overflow-y: auto;
+  color: var(--ink);
+  white-space: normal;
+}
+.sheet-briefing strong {
+  display: block;
+  margin-top: 12px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--ink);
+}
+.sheet-briefing strong:first-child { margin-top: 0; }

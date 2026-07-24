@@ -35,6 +35,9 @@
             <svg class="icon icon-unread-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
             <svg class="icon icon-unread-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
           </button>
+          <button id="btn-river" class="tool-btn tool-btn-icon" title="Alle Artikel" data-i18n-title="river_title" aria-pressed="false">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </button>
           <button id="btn-saved" class="tool-btn tool-btn-icon" title="Gespeicherte Artikel" data-i18n-title="saved_title" aria-pressed="false">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           </button>
@@ -98,6 +101,30 @@
                 <textarea id="input-mute" class="settings-textarea" rows="3" spellcheck="false" placeholder="…" data-i18n-placeholder="mute_placeholder"></textarea>
                 <button id="btn-mute-save" class="btn btn-accent settings-save" type="button" data-i18n="save">Speichern</button>
               </div>
+
+              <div class="settings-section" id="settings-ai" hidden>
+                <span class="settings-label" data-i18n="ai_label">KI</span>
+                <button id="btn-briefing" class="btn settings-save" type="button" data-i18n="ai_briefing">Tages-Briefing</button>
+              </div>
+
+              <div class="settings-section">
+                <span class="settings-label" data-i18n="data_label">Daten</span>
+                <div class="settings-buttons">
+                  <a class="btn" href="/api/opml" download data-i18n="opml_export">OPML exportieren</a>
+                  <button class="btn" id="btn-opml-import" type="button" data-i18n="opml_import">OPML einlesen</button>
+                  <a class="btn" href="/api/backup" download data-i18n="backup_export">Sicherung speichern</a>
+                  <button class="btn" id="btn-restore" type="button" data-i18n="backup_import">Sicherung einspielen</button>
+                </div>
+              </div>
+
+              <div class="settings-section" id="settings-account" hidden>
+                <button class="btn btn-danger-outline settings-save" id="btn-logout" type="button" data-i18n="logout">Abmelden</button>
+              </div>
+
+              <div class="settings-section">
+                <span class="settings-label" data-i18n="shortcuts_label">Tastatur</span>
+                <div class="shortcut-list" id="shortcut-list"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -122,6 +149,8 @@
   <main id="board" class="board" aria-live="polite"></main>
 
   <input type="file" id="logo-file-input" accept="image/*" hidden>
+  <input type="file" id="opml-file-input" accept=".opml,.xml,text/xml,application/xml" hidden>
+  <input type="file" id="backup-file-input" accept=".json,application/json" hidden>
 
   <div id="article-preview" class="article-preview" hidden aria-hidden="true"></div>
 

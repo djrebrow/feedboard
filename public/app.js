@@ -102,6 +102,42 @@
       time_hours: '{n} Std.',
       time_yesterday: 'gestern',
       time_days: '{n} Tg.',
+      river_title: 'Alle Artikel (neueste zuerst)',
+      river_empty: 'Keine Artikel vorhanden.',
+      river_count: '{n} Artikel',
+      feed_pause_title: 'Feed pausieren',
+      feed_resume_title: 'Feed fortsetzen',
+      feed_paused_badge: 'pausiert',
+      feed_auto_paused: 'Nach zu vielen Fehlversuchen automatisch pausiert.',
+      action_fulltext: 'Volltext',
+      action_ai_summary: 'Kurzfassung',
+      action_ai_translate: 'Übersetzen',
+      action_share: 'Teilen',
+      action_loading: 'lädt …',
+      toast_shared: 'An Telegram geschickt.',
+      ai_label: 'KI',
+      ai_briefing: 'Tages-Briefing',
+      ai_briefing_title: 'Briefing der letzten 24 Stunden',
+      ai_briefing_empty: 'Keine ungelesenen Artikel für ein Briefing.',
+      data_label: 'Daten',
+      opml_export: 'OPML exportieren',
+      opml_import: 'OPML einlesen',
+      backup_export: 'Sicherung speichern',
+      backup_import: 'Sicherung einspielen',
+      logout: 'Abmelden',
+      toast_opml_imported: '{feeds} Feeds in {categories} neuen Rubriken übernommen ({skipped} übersprungen).',
+      confirm_restore: 'Die Sicherung ersetzt alle vorhandenen Rubriken, Feeds und Artikel. Fortfahren?',
+      toast_restored: 'Wiederhergestellt: {categories} Rubriken, {feeds} Feeds, {articles} Artikel.',
+      shortcuts_label: 'Tastatur',
+      shortcut_move: 'Artikel wechseln',
+      shortcut_open: 'Artikel öffnen',
+      shortcut_read: 'gelesen',
+      shortcut_star: 'speichern',
+      shortcut_refresh: 'aktualisieren',
+      shortcut_unread: 'nur Ungelesene',
+      shortcut_river: 'alle Artikel',
+      shortcut_search: 'suchen',
+      shortcut_back: 'zurück',
     },
     ru: {
       status_label: 'Обновлено:',
@@ -195,6 +231,42 @@
       time_hours: '{n} ч.',
       time_yesterday: 'вчера',
       time_days: '{n} дн.',
+      river_title: 'Все статьи (сначала новые)',
+      river_empty: 'Статей нет.',
+      river_count: 'Статей: {n}',
+      feed_pause_title: 'Приостановить ленту',
+      feed_resume_title: 'Возобновить ленту',
+      feed_paused_badge: 'пауза',
+      feed_auto_paused: 'Приостановлено автоматически после многих ошибок.',
+      action_fulltext: 'Полный текст',
+      action_ai_summary: 'Кратко',
+      action_ai_translate: 'Перевести',
+      action_share: 'Поделиться',
+      action_loading: 'загрузка …',
+      toast_shared: 'Отправлено в Telegram.',
+      ai_label: 'ИИ',
+      ai_briefing: 'Сводка дня',
+      ai_briefing_title: 'Сводка за последние 24 часа',
+      ai_briefing_empty: 'Нет непрочитанных статей для сводки.',
+      data_label: 'Данные',
+      opml_export: 'Экспорт OPML',
+      opml_import: 'Импорт OPML',
+      backup_export: 'Сохранить копию',
+      backup_import: 'Восстановить из копии',
+      logout: 'Выйти',
+      toast_opml_imported: 'Добавлено лент: {feeds}, новых рубрик: {categories}, пропущено: {skipped}.',
+      confirm_restore: 'Копия заменит все рубрики, ленты и статьи. Продолжить?',
+      toast_restored: 'Восстановлено: рубрик {categories}, лент {feeds}, статей {articles}.',
+      shortcuts_label: 'Клавиши',
+      shortcut_move: 'следующая/предыдущая',
+      shortcut_open: 'открыть',
+      shortcut_read: 'прочитано',
+      shortcut_star: 'сохранить',
+      shortcut_refresh: 'обновить',
+      shortcut_unread: 'только непрочитанные',
+      shortcut_river: 'все статьи',
+      shortcut_search: 'поиск',
+      shortcut_back: 'назад',
     },
   };
 
@@ -215,6 +287,11 @@
     searchResults: [],
     savedView: false,      // „Gespeichert"-Ansicht aktiv
     savedResults: [],
+    riverView: false,      // „Alle Artikel"-Ansicht (chronologisch über alle Rubriken)
+    features: {},          // vom Server gemeldete optionale Funktionen (KI, Teilen, Login)
+    selectedId: null,      // per Tastatur ausgewählter Artikel
+    extra: new Map(),      // Artikel-ID → nachgeladener Text (Volltext, KI)
+    busy: new Set(),       // Artikel-IDs mit laufender Aktion
     themePref: 'system',   // 'light' | 'dark' | 'system' (System = Betriebssystem-Einstellung folgen)
     fontSize: 'normal',    // 'small' | 'normal' | 'large'
     density: 'comfortable',// 'comfortable' | 'compact'
@@ -255,6 +332,16 @@
   const btnMuteSave = document.getElementById('btn-mute-save');
   const previewSheet = document.getElementById('preview-sheet');
   const previewSheetCard = previewSheet.querySelector('.preview-sheet-card');
+  const btnRiver = document.getElementById('btn-river');
+  const opmlFileInput = document.getElementById('opml-file-input');
+  const backupFileInput = document.getElementById('backup-file-input');
+  const btnOpmlImport = document.getElementById('btn-opml-import');
+  const btnRestore = document.getElementById('btn-restore');
+  const btnLogout = document.getElementById('btn-logout');
+  const btnBriefing = document.getElementById('btn-briefing');
+  const settingsAi = document.getElementById('settings-ai');
+  const settingsAccount = document.getElementById('settings-account');
+  const shortcutList = document.getElementById('shortcut-list');
 
   // -------------------------------------------------------------------------
   // i18n-Hilfsfunktionen
@@ -322,6 +409,7 @@
     document.documentElement.lang = state.lang;
     applyStaticI18n();
     updateLangButtons();
+    renderShortcutList();
     updateClock();
     render();
   }
@@ -370,6 +458,10 @@
     let data = null;
     try { data = await response.json(); } catch { /* leere Antwort */ }
     if (!response.ok) {
+      // Sitzung abgelaufen oder Zugangsschutz neu eingeschaltet
+      if (response.status === 401 && data && data.login_required) {
+        location.replace('/login');
+      }
       throw new Error((data && data.error) || `Fehler ${response.status}`);
     }
     return data;
@@ -447,6 +539,32 @@
     return `<img class="article-thumb" src="${esc(image)}" alt="" loading="lazy" onerror="this.remove()">`;
   }
 
+  // Aktionen im aufgeklappten Bereich — nur, was der Server auch anbietet
+  function articleActionsHtml(article) {
+    const buttons = [];
+    if (safeUrl(article.link)) {
+      buttons.push(`<button class="article-action" data-action="article-fulltext">${esc(t('action_fulltext'))}</button>`);
+    }
+    if (state.features.ai) {
+      buttons.push(`<button class="article-action" data-action="article-ai-summary">✦ ${esc(t('action_ai_summary'))}</button>`);
+      buttons.push(`<button class="article-action" data-action="article-ai-translate">✦ ${esc(t('action_ai_translate'))}</button>`);
+    }
+    if (state.features.telegram_share) {
+      buttons.push(`<button class="article-action" data-action="article-share">${esc(t('action_share'))}</button>`);
+    }
+    return buttons.length ? `<div class="article-actions">${buttons.join('')}</div>` : '';
+  }
+
+  // Nachgeladener Text (Volltext, KI-Kurzfassung, Übersetzung) unter dem Artikel
+  function articleExtraHtml(article) {
+    if (state.busy.has(article.id)) {
+      return `<div class="article-extra article-extra-busy">${esc(t('action_loading'))}</div>`;
+    }
+    const extra = state.extra.get(article.id);
+    if (!extra) return '';
+    return `<div class="article-extra"><span class="article-extra-label">${esc(extra.label)}</span>${esc(extra.text).replaceAll('\n', '<br>')}</div>`;
+  }
+
   function articleHtml(article) {
     const hasSummary = !!article.summary;
     const expanded = state.expanded.has(article.id);
@@ -456,23 +574,31 @@
       ? `<a class="article-title" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(article.title)}</a>`
       : `<span class="article-title">${esc(article.title)}</span>`;
 
+    const actions = articleActionsHtml(article);
+    const expandable = hasSummary || !!actions;
+    const selected = state.selectedId === article.id;
+
     return `
-      <li class="article${hasSummary ? ' has-summary' : ''}${expanded ? ' expanded' : ''}${fresh ? ' article-fresh' : ''}${article.read ? ' article-read-done' : ''}" data-article-id="${article.id}">
-        <div class="article-row" ${hasSummary ? 'data-action="toggle-summary" title="Kurzfassung ein-/ausblenden"' : ''}>
+      <li class="article${hasSummary ? ' has-summary' : ''}${expandable ? ' expandable' : ''}${expanded ? ' expanded' : ''}${fresh ? ' article-fresh' : ''}${article.read ? ' article-read-done' : ''}${selected ? ' selected' : ''}" data-article-id="${article.id}">
+        <div class="article-row" ${expandable ? 'data-action="toggle-summary" title="Kurzfassung ein-/ausblenden"' : ''}>
           ${readToggleHtml(article)}
           ${thumbHtml(article)}
           <span class="article-time">${esc(relativeTime(article.published_at || article.fetched_at))}</span>
           ${title}
           ${starToggleHtml(article)}
-          ${hasSummary ? '<svg class="article-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' : ''}
+          ${expandable ? '<svg class="article-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' : ''}
         </div>
         ${hasSummary ? `<div class="article-summary">${esc(article.summary)}</div>` : ''}
+        ${articleExtraHtml(article)}
+        ${actions}
       </li>`;
   }
 
   function feedToolsHtml(feed, index, total) {
+    const paused = feed.enabled === false;
     return `
       <span class="feed-tools">
+        <button class="btn-ghost" data-action="feed-toggle-enabled" title="${esc(paused ? t('feed_resume_title') : t('feed_pause_title'))}">${paused ? '▶' : '⏸'}</button>
         <button class="btn-ghost" data-action="feed-up" title="${esc(t('feed_move_up'))}" ${index === 0 ? 'disabled' : ''}>▲</button>
         <button class="btn-ghost" data-action="feed-down" title="${esc(t('feed_move_down'))}" ${index === total - 1 ? 'disabled' : ''}>▼</button>
         <button class="btn-ghost" data-action="feed-rename" title="${esc(t('rename_feed_title'))}">
@@ -501,11 +627,13 @@
         : `<span class="feed-name">${esc(feed.name)}</span>`;
 
     const unread = feed.unread || 0;
+    const paused = feed.enabled === false;
     return `
-      <div class="feed" data-feed-id="${feed.id}">
+      <div class="feed${paused ? ' feed-paused' : ''}" data-feed-id="${feed.id}">
         <div class="feed-header">
           ${faviconHtml(feed)}
           ${nameHtml}
+          ${paused ? `<span class="paused-badge" title="${esc(feed.error_count >= 20 ? t('feed_auto_paused') : t('feed_pause_title'))}">${esc(t('feed_paused_badge'))}</span>` : ''}
           ${unread > 0 ? `<span class="unread-badge" title="${esc(t('unread_badge_title', { n: unread }))}">${unread}</span>` : ''}
           ${feed.last_error ? `<span class="feed-error" title="${esc(t('feed_error_prefix'))} ${esc(feed.last_error)}">⚠</span>` : ''}
           ${unread > 0 ? `<button class="btn-ghost feed-mark-read" data-action="feed-mark-read" title="${esc(t('mark_all_read_title'))}"><svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
@@ -644,19 +772,24 @@
     const title = link
       ? `<a class="article-title" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(article.title)}</a>`
       : `<span class="article-title">${esc(article.title)}</span>`;
+    const expanded = state.expanded.has(article.id);
+    const selected = state.selectedId === article.id;
     return `
-      <li class="search-result${article.read ? ' article-read-done' : ''}" data-article-id="${article.id}">
+      <li class="search-result${article.read ? ' article-read-done' : ''}${expanded ? ' expanded' : ''}${selected ? ' selected' : ''}" data-article-id="${article.id}">
+        ${readToggleHtml(article)}
         ${image ? `<img class="search-result-img" src="${esc(image)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
-        <div class="search-result-body">
+        <div class="search-result-body" data-action="toggle-summary">
           <div class="search-result-meta">${esc(article.category_name)} · ${esc(article.feed_name)} · ${esc(relativeTime(article.published_at || article.fetched_at))}</div>
           ${title}
           ${article.summary ? `<div class="search-result-summary">${esc(article.summary)}</div>` : ''}
+          ${articleExtraHtml(article)}
+          ${articleActionsHtml(article)}
         </div>
         ${starToggleHtml(article)}
       </li>`;
   }
 
-  function renderResultList(results, emptyText) {
+  function renderResultList(results, emptyText, headText) {
     boardEl.classList.remove('board--detail');
     boardEl.classList.add('board--search');
     if (!results.length) {
@@ -664,8 +797,36 @@
       return;
     }
     boardEl.innerHTML = `
-      <div class="search-head">${esc(t('search_results_count', { n: results.length }))}</div>
+      <div class="search-head">${esc(headText || t('search_results_count', { n: results.length }))}</div>
       <ul class="search-results">${results.map(searchResultHtml).join('')}</ul>`;
+  }
+
+  // „Alle Artikel": ein chronologischer Strom über sämtliche Rubriken hinweg.
+  // Wird aus den bereits geladenen Board-Daten gebaut — kein zusätzlicher Abruf.
+  const RIVER_MAX = 300;
+
+  function riverArticles() {
+    const all = [];
+    for (const category of state.board.categories) {
+      for (const feed of category.feeds) {
+        for (const article of feed.articles) {
+          if (state.unreadOnly && article.read) continue;
+          all.push({
+            ...article,
+            feed_name: feed.name,
+            feed_site_url: feed.site_url,
+            category_name: category.name,
+            category_slug: category.slug,
+          });
+        }
+      }
+    }
+    all.sort((a, b) => {
+      const left = Date.parse(a.published_at || a.fetched_at || 0) || 0;
+      const right = Date.parse(b.published_at || b.fetched_at || 0) || 0;
+      return right - left;
+    });
+    return all.slice(0, RIVER_MAX);
   }
 
   function render() {
@@ -680,6 +841,11 @@
     }
     if (state.savedView) {
       renderResultList(state.savedResults, t('saved_empty'));
+      return;
+    }
+    if (state.riverView) {
+      const articles = riverArticles();
+      renderResultList(articles, t('river_empty'), t('river_count', { n: articles.length }));
       return;
     }
     boardEl.classList.remove('board--search');
@@ -726,6 +892,8 @@
     if (match) {
       state.view = 'category';
       state.activeSlug = decodeURIComponent(match[1]);
+      // Eine verlinkte Rubrik hat Vorrang vor der Gesamtliste
+      if (state.riverView) setRiverView(false, { silent: true });
     } else {
       state.view = 'categories';
       state.activeSlug = null;
@@ -758,6 +926,7 @@
     state.loading = true;
     try {
       state.board = await api('/api/board');
+      applyFeatures(state.board.features || {});
       render();
       lastUpdatedEl.textContent = new Date().toLocaleTimeString(locale(), {
         hour: '2-digit', minute: '2-digit',
@@ -893,6 +1062,7 @@
     btnSaved.classList.toggle('active', active);
     btnSaved.setAttribute('aria-pressed', active ? 'true' : 'false');
     if (active) {
+      setRiverView(false, { silent: true });
       inputSearch.value = '';
       state.searchQuery = '';
       state.searchResults = [];
@@ -901,6 +1071,23 @@
     } else {
       render();
     }
+  }
+
+  // „Alle Artikel" ---------------------------------------------------------
+
+  function setRiverView(active, { silent = false } = {}) {
+    state.riverView = active;
+    localStorage.setItem('feedboard-river', active ? '1' : '0');
+    btnRiver.classList.toggle('active', active);
+    btnRiver.setAttribute('aria-pressed', active ? 'true' : 'false');
+    if (active) {
+      state.savedView = false;
+      btnSaved.classList.remove('active');
+      btnSaved.setAttribute('aria-pressed', 'false');
+      clearSearch();
+      return;
+    }
+    if (!silent) render();
   }
 
   // Anzeige-Einstellungen ------------------------------------------------------
@@ -958,6 +1145,144 @@
     } catch (error) {
       toast(error.message, true);
     }
+  }
+
+  // Optionale Funktionen (KI, Teilen, Login) ------------------------------------
+
+  function applyFeatures(features) {
+    const changed = JSON.stringify(features) !== JSON.stringify(state.features);
+    state.features = features;
+    settingsAi.hidden = !features.ai;
+    settingsAccount.hidden = !features.auth;
+    return changed;
+  }
+
+  // Volltext, KI-Kurzfassung und Übersetzung ------------------------------------
+
+  const ACTIONS = {
+    fulltext: {
+      label: 'action_fulltext',
+      path: (id) => `/api/articles/${id}/content`,
+      body: () => ({}),
+      read: (data) => data.content,
+    },
+    summary: {
+      label: 'action_ai_summary',
+      path: (id) => `/api/articles/${id}/ai/summary`,
+      body: () => ({}),
+      read: (data) => data.summary,
+    },
+    translate: {
+      label: 'action_ai_translate',
+      path: (id) => `/api/articles/${id}/ai/translate`,
+      body: () => ({ lang: state.lang }),
+      read: (data) => data.translation,
+    },
+  };
+
+  async function runArticleAction(id, kind) {
+    const action = ACTIONS[kind];
+    if (!action || state.busy.has(id)) return;
+    state.expanded.add(id);
+    state.busy.add(id);
+    render();
+    try {
+      const data = await api(action.path(id), {
+        method: 'POST',
+        body: JSON.stringify(action.body()),
+      });
+      const text = action.read(data);
+      if (text) state.extra.set(id, { label: t(action.label), text });
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      state.busy.delete(id);
+      render();
+    }
+  }
+
+  async function shareArticle(id) {
+    try {
+      await api(`/api/articles/${id}/share/telegram`, { method: 'POST', body: '{}' });
+      toast(t('toast_shared'));
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  // Tages-Briefing im Vorschau-Sheet zeigen
+  async function showBriefing() {
+    setSettingsOpen(false);
+    previewSheetCard.innerHTML = `<div class="sheet-body"><p class="sheet-summary">${esc(t('action_loading'))}</p></div>`;
+    previewSheet.hidden = false;
+    previewSheet.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('sheet-open');
+    try {
+      const data = await api('/api/ai/briefing', {
+        method: 'POST',
+        body: JSON.stringify({ lang: state.lang }),
+      });
+      const html = esc(data.text)
+        .replaceAll(/^#\s*(.+)$/gm, '<strong>$1</strong>')
+        .replaceAll('\n', '<br>');
+      previewSheetCard.innerHTML = `
+        <div class="sheet-body">
+          <h3 class="sheet-title">${esc(t('ai_briefing_title'))}</h3>
+          <p class="sheet-summary sheet-briefing">${html}</p>
+          <div class="sheet-actions">
+            <button type="button" class="btn" data-action="sheet-close">${esc(t('ok'))}</button>
+          </div>
+        </div>`;
+    } catch (error) {
+      previewSheetCard.innerHTML = `
+        <div class="sheet-body">
+          <p class="sheet-summary">${esc(error.message)}</p>
+          <div class="sheet-actions">
+            <button type="button" class="btn" data-action="sheet-close">${esc(t('ok'))}</button>
+          </div>
+        </div>`;
+    }
+  }
+
+  // OPML, Sicherung, Abmelden ---------------------------------------------------
+
+  function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
+      reader.onload = () => resolve(String(reader.result));
+      reader.readAsText(file);
+    });
+  }
+
+  async function importOpml(file) {
+    try {
+      const xml = await readFileAsText(file);
+      const result = await api('/api/opml', { method: 'POST', body: JSON.stringify({ xml }) });
+      toast(t('toast_opml_imported', result));
+      await loadBoard();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  async function restoreBackup(file) {
+    if (!confirm(t('confirm_restore'))) return;
+    try {
+      const json = await readFileAsText(file);
+      const result = await api('/api/restore', { method: 'POST', body: json });
+      toast(t('toast_restored', result));
+      await loadBoard();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  async function logout() {
+    try {
+      await api('/api/logout', { method: 'POST' });
+    } catch { /* egal — die Seite wird ohnehin neu geladen */ }
+    location.replace('/login');
   }
 
   // Suche ----------------------------------------------------------------------
@@ -1335,6 +1660,18 @@
           articleEl.classList.toggle('expanded');
           break;
         }
+        case 'article-fulltext':
+          await runArticleAction(Number(articleEl.dataset.articleId), 'fulltext');
+          break;
+        case 'article-ai-summary':
+          await runArticleAction(Number(articleEl.dataset.articleId), 'summary');
+          break;
+        case 'article-ai-translate':
+          await runArticleAction(Number(articleEl.dataset.articleId), 'translate');
+          break;
+        case 'article-share':
+          await shareArticle(Number(articleEl.dataset.articleId));
+          break;
         case 'toggle-read':
           await toggleArticleRead(Number(articleEl.dataset.articleId));
           break;
@@ -1400,6 +1737,16 @@
         case 'feed-down':
           await moveFeed(categoryId, feedId, +1);
           break;
+        case 'feed-toggle-enabled': {
+          const category = findCategory(categoryId);
+          const feed = category?.feeds.find((f) => f.id === feedId);
+          await api(`/api/feeds/${feedId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ enabled: feed ? feed.enabled === false : true }),
+          });
+          await loadBoard();
+          break;
+        }
         case 'feed-rename':
           state.renaming = { type: 'feed', id: feedId };
           render();
@@ -1518,6 +1865,109 @@
 
   btnUnread.addEventListener('click', () => setUnreadOnly(!state.unreadOnly));
   btnSaved.addEventListener('click', () => setSavedView(!state.savedView));
+  btnRiver.addEventListener('click', () => setRiverView(!state.riverView));
+
+  // Zahnrad: KI, Daten, Abmelden
+  btnBriefing.addEventListener('click', showBriefing);
+  btnLogout.addEventListener('click', logout);
+  btnOpmlImport.addEventListener('click', () => opmlFileInput.click());
+  btnRestore.addEventListener('click', () => backupFileInput.click());
+
+  opmlFileInput.addEventListener('change', () => {
+    const file = opmlFileInput.files && opmlFileInput.files[0];
+    opmlFileInput.value = '';
+    if (file) importOpml(file);
+  });
+  backupFileInput.addEventListener('change', () => {
+    const file = backupFileInput.files && backupFileInput.files[0];
+    backupFileInput.value = '';
+    if (file) restoreBackup(file);
+  });
+
+  // -------------------------------------------------------------------------
+  // Tastatur-Navigation
+  // -------------------------------------------------------------------------
+
+  const SHORTCUTS = [
+    ['j / k', 'shortcut_move'],
+    ['o', 'shortcut_open'],
+    ['m', 'shortcut_read'],
+    ['s', 'shortcut_star'],
+    ['r', 'shortcut_refresh'],
+    ['u', 'shortcut_unread'],
+    ['a', 'shortcut_river'],
+    ['/', 'shortcut_search'],
+    ['Esc', 'shortcut_back'],
+  ];
+
+  function renderShortcutList() {
+    shortcutList.innerHTML = SHORTCUTS
+      .map(([key, label]) => `<div class="shortcut"><kbd>${esc(key)}</kbd><span>${esc(t(label))}</span></div>`)
+      .join('');
+  }
+
+  function articleElements() {
+    return Array.from(boardEl.querySelectorAll('[data-article-id]'));
+  }
+
+  function setSelected(id) {
+    state.selectedId = id;
+    for (const el of articleElements()) {
+      el.classList.toggle('selected', Number(el.dataset.articleId) === id);
+    }
+    const active = boardEl.querySelector(`[data-article-id="${id}"]`);
+    if (active && typeof active.scrollIntoView === 'function') {
+      active.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  function moveSelection(delta) {
+    const ids = articleElements().map((el) => Number(el.dataset.articleId));
+    if (!ids.length) return;
+    let index = ids.indexOf(state.selectedId);
+    if (index < 0) index = delta > 0 ? -1 : 0;
+    setSelected(ids[Math.min(ids.length - 1, Math.max(0, index + delta))]);
+  }
+
+  function isTypingTarget(target) {
+    return !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+  }
+
+  document.addEventListener('keydown', (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (isTypingTarget(event.target)) return;
+    if (!previewSheet.hidden) return; // das Sheet hat eigene Tasten (Esc)
+
+    const id = state.selectedId;
+    switch (event.key) {
+      case 'j': moveSelection(+1); break;
+      case 'k': moveSelection(-1); break;
+      case 'o':
+      case 'Enter': {
+        const article = id != null ? findArticleAny(id) : null;
+        const url = article && safeUrl(article.link);
+        if (url) window.open(url, '_blank', 'noopener');
+        break;
+      }
+      case 'm': if (id != null) toggleArticleRead(id); break;
+      case 's': if (id != null) toggleArticleStarred(id); break;
+      case 'r': refreshAll(); break;
+      case 'u': setUnreadOnly(!state.unreadOnly); break;
+      case 'a': setRiverView(!state.riverView); break;
+      case '/':
+        inputSearch.focus();
+        inputSearch.select();
+        break;
+      case 'Escape':
+        if (state.searchQuery) clearSearch();
+        else if (state.savedView) setSavedView(false);
+        else if (state.riverView) setRiverView(false);
+        else if (state.view === 'category') backToCategories();
+        break;
+      default: return;
+    }
+    event.preventDefault();
+  });
 
   // Anzeige-Einstellungen im Zahnrad
   segFontSize.addEventListener('click', (event) => {
@@ -1606,9 +2056,15 @@
   applyStaticI18n();
   updateLangButtons();
 
+  renderShortcutList();
+
   state.unreadOnly = localStorage.getItem('feedboard-unread-only') === '1';
   btnUnread.classList.toggle('active', state.unreadOnly);
   btnUnread.setAttribute('aria-pressed', state.unreadOnly ? 'true' : 'false');
+
+  state.riverView = localStorage.getItem('feedboard-river') === '1';
+  btnRiver.classList.toggle('active', state.riverView);
+  btnRiver.setAttribute('aria-pressed', state.riverView ? 'true' : 'false');
 
   // Anzeige-Einstellungen laden und anwenden
   const savedFont = localStorage.getItem('feedboard-fontsize');

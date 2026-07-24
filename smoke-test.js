@@ -38,6 +38,8 @@ const boardData = {
           site_url: 'https://example.org',
           last_fetched_at: '2026-07-23 10:00:00',
           last_error: 'Status code 404',
+          enabled: false,
+          error_count: 21,
           articles: [],
         },
       ],
@@ -45,6 +47,7 @@ const boardData = {
   ],
   refreshing: false,
   fetch_interval_minutes: 30,
+  features: { ai: true, telegram_share: true, auth: true },
 };
 
 async function run() {
@@ -117,6 +120,36 @@ async function run() {
   doc.querySelector('.articles-more').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 20));
   check('"Mehr anzeigen": alle 12 Artikel sichtbar', doc.querySelectorAll('.feed[data-feed-id="10"] .article').length === 12);
+
+  // Neue Funktionen: Pause-Anzeige, Artikel-Aktionen, „Alle Artikel", Tastatur
+  check('Pausierter Feed ist markiert', !!doc.querySelector('.feed[data-feed-id="11"].feed-paused .paused-badge'));
+  check('Pause-Knopf im Feed-Werkzeug', !!doc.querySelector('.feed[data-feed-id="11"] [data-action="feed-toggle-enabled"]'));
+  check('Artikel-Aktionen vorhanden', !!doc.querySelector('.article[data-article-id="100"] [data-action="article-fulltext"]'));
+  check('KI-Aktionen bei aktiver Funktion', !!doc.querySelector('.article[data-article-id="100"] [data-action="article-ai-summary"]'));
+  check('Teilen-Aktion bei aktiver Funktion', !!doc.querySelector('.article[data-article-id="100"] [data-action="article-share"]'));
+  check('Zahnrad: KI-Bereich sichtbar', !doc.getElementById('settings-ai').hidden);
+  check('Zahnrad: Abmelden sichtbar', !doc.getElementById('settings-account').hidden);
+  check('Tastaturübersicht gefüllt', doc.querySelectorAll('#shortcut-list .shortcut').length >= 8);
+
+  // j wählt den ersten Artikel aus, k geht wieder zurück
+  const pressKey = (key) => doc.dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true }));
+  pressKey('j');
+  check('Tastatur: j wählt einen Artikel', !!doc.querySelector('.article.selected'));
+  const firstSelected = doc.querySelector('.article.selected').dataset.articleId;
+  pressKey('j');
+  check('Tastatur: j springt weiter', doc.querySelector('.article.selected').dataset.articleId !== firstSelected);
+  pressKey('k');
+  check('Tastatur: k springt zurück', doc.querySelector('.article.selected').dataset.articleId === firstSelected);
+
+  // „Alle Artikel" — chronologischer Strom über alle Rubriken
+  doc.getElementById('btn-river').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 20));
+  check('Alle Artikel: Liste gerendert', doc.querySelectorAll('.search-results .search-result').length === 12);
+  check('Alle Artikel: neuester Artikel oben',
+    doc.querySelector('.search-result .search-result-meta')?.textContent.includes('heise online'));
+  doc.getElementById('btn-river').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 20));
+  check('Alle Artikel: zurück zur Rubrikansicht', !!doc.querySelector('.feed[data-feed-id="10"]'));
 
   // Empty-State testen
   window.fetch = async () => ({ ok: true, status: 200, json: async () => ({ categories: [], refreshing: false, fetch_interval_minutes: 30 }) });
