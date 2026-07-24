@@ -17,6 +17,21 @@
       edit_title: 'Rubriken und Feeds verwalten',
       edit_label: 'Bearbeiten',
       theme_title: 'Design wechseln (hell/dunkel)',
+      settings_title: 'Einstellungen',
+      lang_switch_title: 'Sprache wechseln',
+      saved_title: 'Gespeicherte Artikel',
+      saved_empty: 'Noch keine Artikel gespeichert.',
+      font_size_label: 'Schriftgröße',
+      density_label: 'Dichte',
+      density_comfortable: 'Komfortabel',
+      density_compact: 'Kompakt',
+      thumbnails_label: 'Thumbnails in der Liste',
+      favicon_cache_label: 'Favicons lokal cachen',
+      mute_label: 'Ausblenden (ein Wort pro Zeile)',
+      mute_placeholder: 'z. B. Werbung',
+      star_add_title: 'Artikel speichern',
+      star_remove_title: 'Aus Gespeicherten entfernen',
+      toast_mute_saved: 'Filter gespeichert.',
       new_category_placeholder: 'Neue Rubrik …',
       anchor_placeholder: 'anker',
       create_category: 'Rubrik anlegen',
@@ -24,6 +39,16 @@
       anchor_label: 'Anker',
       logo_label: 'Logo',
       save: 'Speichern',
+      search_placeholder: 'Suchen …',
+      unread_only_title: 'Nur Ungelesene anzeigen',
+      mark_read_title: 'Als gelesen markieren',
+      mark_unread_title: 'Als ungelesen markieren',
+      mark_all_read_title: 'Alle als gelesen markieren',
+      unread_badge_title: '{n} ungelesen',
+      open_article: 'Öffnen',
+      search_no_results: 'Nichts gefunden.',
+      search_results_count: '{n} Treffer',
+      search_hint: 'Tippe zum Suchen in allen Artikeln.',
       edit_hint_categories: 'Bearbeitungsmodus — Rubriken anlegen, umbenennen, sortieren und löschen.',
       edit_hint_feeds: 'Bearbeitungsmodus — Feeds hinzufügen, umbenennen, sortieren und löschen.',
       back_all: 'Alle Rubriken',
@@ -81,6 +106,21 @@
       edit_title: 'Управление рубриками и лентами',
       edit_label: 'Править',
       theme_title: 'Сменить тему (светлая/тёмная)',
+      settings_title: 'Настройки',
+      lang_switch_title: 'Сменить язык',
+      saved_title: 'Сохранённые статьи',
+      saved_empty: 'Пока нет сохранённых статей.',
+      font_size_label: 'Размер шрифта',
+      density_label: 'Плотность',
+      density_comfortable: 'Свободно',
+      density_compact: 'Компактно',
+      thumbnails_label: 'Миниатюры в списке',
+      favicon_cache_label: 'Кэшировать фавиконы локально',
+      mute_label: 'Скрывать (по слову в строке)',
+      mute_placeholder: 'напр. реклама',
+      star_add_title: 'Сохранить статью',
+      star_remove_title: 'Убрать из сохранённых',
+      toast_mute_saved: 'Фильтр сохранён.',
       new_category_placeholder: 'Новая рубрика …',
       anchor_placeholder: 'anker',
       create_category: 'Создать рубрику',
@@ -88,6 +128,16 @@
       anchor_label: 'Якорь',
       logo_label: 'Логотип',
       save: 'Сохранить',
+      search_placeholder: 'Поиск …',
+      unread_only_title: 'Только непрочитанные',
+      mark_read_title: 'Отметить прочитанным',
+      mark_unread_title: 'Отметить непрочитанным',
+      mark_all_read_title: 'Отметить всё прочитанным',
+      unread_badge_title: 'непрочитанных: {n}',
+      open_article: 'Открыть',
+      search_no_results: 'Ничего не найдено.',
+      search_results_count: 'Найдено: {n}',
+      search_hint: 'Введите запрос для поиска по статьям.',
       edit_hint_categories: 'Режим редактирования — рубрики: создание, переименование, сортировка, удаление.',
       edit_hint_feeds: 'Режим редактирования — ленты: добавление, переименование, сортировка, удаление.',
       back_all: 'Все рубрики',
@@ -152,6 +202,15 @@
     editingCategory: null, // Rubrik-ID, deren Bearbeiten-Panel offen ist
     editingDraft: null,    // { name, slug, slugTouched } — ungespeicherte Panel-Eingaben
     logoTargetId: null,    // Rubrik-ID für den nächsten Logo-Upload
+    unreadOnly: false,     // nur ungelesene Artikel anzeigen
+    searchQuery: '',       // aktive Suchanfrage (leer = normale Ansicht)
+    searchResults: [],
+    savedView: false,      // „Gespeichert"-Ansicht aktiv
+    savedResults: [],
+    fontSize: 'normal',    // 'small' | 'normal' | 'large'
+    density: 'comfortable',// 'comfortable' | 'compact'
+    thumbnails: false,     // Thumbnails in der Liste
+    faviconCache: false,   // Favicons über den lokalen Proxy laden
     loading: false,
   };
 
@@ -167,9 +226,24 @@
   const inputCategoryName = document.getElementById('input-category-name');
   const inputCategorySlug = document.getElementById('input-category-slug');
   const toastContainer = document.getElementById('toast-container');
-  const langButtons = document.querySelectorAll('.lang-btn');
+  const btnLang = document.getElementById('btn-lang');
+  const settingsEl = document.getElementById('settings');
+  const btnSettings = document.getElementById('btn-settings');
+  const settingsMenu = document.getElementById('settings-menu');
   const logoFileInput = document.getElementById('logo-file-input');
   const articlePreview = document.getElementById('article-preview');
+  const btnUnread = document.getElementById('btn-unread');
+  const btnSaved = document.getElementById('btn-saved');
+  const inputSearch = document.getElementById('input-search');
+  const btnSearchClear = document.getElementById('btn-search-clear');
+  const segFontSize = document.getElementById('seg-fontsize');
+  const segDensity = document.getElementById('seg-density');
+  const chkThumbnails = document.getElementById('chk-thumbnails');
+  const chkFaviconCache = document.getElementById('chk-favicon-cache');
+  const inputMute = document.getElementById('input-mute');
+  const btnMuteSave = document.getElementById('btn-mute-save');
+  const previewSheet = document.getElementById('preview-sheet');
+  const previewSheetCard = previewSheet.querySelector('.preview-sheet-card');
 
   // -------------------------------------------------------------------------
   // i18n-Hilfsfunktionen
@@ -227,7 +301,8 @@
   }
 
   function updateLangButtons() {
-    langButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.lang === state.lang));
+    const label = btnLang.querySelector('.lang-label');
+    if (label) label.textContent = state.lang.toUpperCase();
   }
 
   function setLang(lang) {
@@ -330,11 +405,35 @@
   // Rendering
   // -------------------------------------------------------------------------
 
+  function faviconSrc(host) {
+    return state.faviconCache
+      ? `/api/favicon?host=${encodeURIComponent(host)}`
+      : `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=32`;
+  }
+
   function faviconHtml(feed) {
     const host = hostnameOf(feed.site_url || feed.rss_url);
     const letter = esc((feed.name || '?').charAt(0));
     if (!host) return `<span class="feed-favicon-fallback">${letter}</span>`;
-    return `<img class="feed-favicon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=32" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;feed-favicon-fallback&quot;>${letter}</span>'">`;
+    return `<img class="feed-favicon" src="${faviconSrc(host)}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;feed-favicon-fallback&quot;>${letter}</span>'">`;
+  }
+
+  function readToggleHtml(article) {
+    const title = article.read ? t('mark_unread_title') : t('mark_read_title');
+    return `<button class="article-read" data-action="toggle-read" title="${esc(title)}" aria-label="${esc(title)}"></button>`;
+  }
+
+  function starToggleHtml(article) {
+    const title = article.starred ? t('star_remove_title') : t('star_add_title');
+    return `<button class="article-star${article.starred ? ' starred' : ''}" data-action="toggle-star" title="${esc(title)}" aria-label="${esc(title)}">
+      <svg viewBox="0 0 24 24" fill="${article.starred ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+    </button>`;
+  }
+
+  function thumbHtml(article) {
+    const image = safeUrl(article.image);
+    if (!state.thumbnails || !image) return '';
+    return `<img class="article-thumb" src="${esc(image)}" alt="" loading="lazy" onerror="this.remove()">`;
   }
 
   function articleHtml(article) {
@@ -347,10 +446,13 @@
       : `<span class="article-title">${esc(article.title)}</span>`;
 
     return `
-      <li class="article${hasSummary ? ' has-summary' : ''}${expanded ? ' expanded' : ''}${fresh ? ' article-fresh' : ''}" data-article-id="${article.id}">
+      <li class="article${hasSummary ? ' has-summary' : ''}${expanded ? ' expanded' : ''}${fresh ? ' article-fresh' : ''}${article.read ? ' article-read-done' : ''}" data-article-id="${article.id}">
         <div class="article-row" ${hasSummary ? 'data-action="toggle-summary" title="Kurzfassung ein-/ausblenden"' : ''}>
+          ${readToggleHtml(article)}
+          ${thumbHtml(article)}
           <span class="article-time">${esc(relativeTime(article.published_at || article.fetched_at))}</span>
           ${title}
+          ${starToggleHtml(article)}
           ${hasSummary ? '<svg class="article-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' : ''}
         </div>
         ${hasSummary ? `<div class="article-summary">${esc(article.summary)}</div>` : ''}
@@ -373,8 +475,9 @@
     const renaming = state.renaming && state.renaming.type === 'feed' && state.renaming.id === feed.id;
     const siteLink = safeUrl(feed.site_url);
     const showAll = state.showAll.has(feed.id);
-    const articles = showAll ? feed.articles : feed.articles.slice(0, ARTICLES_VISIBLE);
-    const hiddenCount = feed.articles.length - articles.length;
+    const visibleArticles = state.unreadOnly ? feed.articles.filter((a) => !a.read) : feed.articles;
+    const articles = showAll ? visibleArticles : visibleArticles.slice(0, ARTICLES_VISIBLE);
+    const hiddenCount = visibleArticles.length - articles.length;
 
     const nameHtml = renaming
       ? `<form class="rename-form" data-action="feed-rename-submit">
@@ -386,17 +489,20 @@
         ? `<a class="feed-name" href="${esc(siteLink)}" target="_blank" rel="noopener noreferrer">${esc(feed.name)}</a>`
         : `<span class="feed-name">${esc(feed.name)}</span>`;
 
+    const unread = feed.unread || 0;
     return `
       <div class="feed" data-feed-id="${feed.id}">
         <div class="feed-header">
           ${faviconHtml(feed)}
           ${nameHtml}
+          ${unread > 0 ? `<span class="unread-badge" title="${esc(t('unread_badge_title', { n: unread }))}">${unread}</span>` : ''}
           ${feed.last_error ? `<span class="feed-error" title="${esc(t('feed_error_prefix'))} ${esc(feed.last_error)}">⚠</span>` : ''}
+          ${unread > 0 ? `<button class="btn-ghost feed-mark-read" data-action="feed-mark-read" title="${esc(t('mark_all_read_title'))}"><svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
           ${feedToolsHtml(feed, index, total)}
         </div>
-        ${feed.articles.length
+        ${articles.length
           ? `<ul class="articles">${articles.map(articleHtml).join('')}</ul>`
-          : `<div class="feed-empty">${esc(t('no_articles'))}</div>`}
+          : `<div class="feed-empty">${esc(state.unreadOnly ? t('no_articles') : t('no_articles'))}</div>`}
         ${hiddenCount > 0 ? `<button class="articles-more" data-action="show-more">+ ${hiddenCount} ${esc(t('show_more'))}</button>` : ''}
         ${showAll && feed.articles.length > ARTICLES_VISIBLE ? `<button class="articles-more" data-action="show-less">${esc(t('show_less'))}</button>` : ''}
       </div>`;
@@ -445,6 +551,7 @@
 
     return `
       <div class="category-tile${logo ? ' has-logo' : ''}" data-category-id="${category.id}" data-action="open-category" style="animation-delay:${Math.min(index * 55, 400)}ms">
+        ${category.unread > 0 ? `<span class="unread-badge tile-badge" title="${esc(t('unread_badge_title', { n: category.unread }))}">${category.unread}</span>` : ''}
         <div class="category-tile-body">
           ${logo ? `<img class="category-logo" src="${esc(logo)}" alt="">` : ''}
           <span class="category-tile-name">${esc(category.name)}</span>
@@ -465,6 +572,21 @@
 
   function categoryDetailHtml(category) {
     const feedCount = category.feeds.length;
+    const unread = category.unread || 0;
+    // Bei „nur Ungelesene" Feeds ohne ungelesene Artikel ausblenden
+    const visibleFeeds = state.unreadOnly
+      ? category.feeds.filter((f) => (f.unread || 0) > 0)
+      : category.feeds;
+
+    let body;
+    if (!category.feeds.length) {
+      body = `<div class="category-empty">${esc(t('no_feeds'))}</div>`;
+    } else if (!visibleFeeds.length) {
+      body = `<div class="category-empty">${esc(t('search_no_results'))}</div>`;
+    } else {
+      body = `<div class="feeds-grid">${visibleFeeds.map((feed, i) => feedHtml(feed, i, visibleFeeds.length)).join('')}</div>`;
+    }
+
     return `
       <section class="category category-open" data-category-id="${category.id}">
         <div class="category-header">
@@ -473,7 +595,9 @@
             <span>${esc(t('back_all'))}</span>
           </button>
           <h2 class="category-title">${esc(category.name)}</h2>
+          ${unread > 0 ? `<span class="unread-badge" title="${esc(t('unread_badge_title', { n: unread }))}">${unread}</span>` : ''}
           <span class="category-count">${esc(feedCountLabel(feedCount))}</span>
+          ${unread > 0 ? `<button class="btn-ghost category-mark-read" data-action="category-mark-read" title="${esc(t('mark_all_read_title'))}"><svg class="icon" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
         </div>
         <div class="feed-add">
           <form class="feed-add-form" data-action="feed-add">
@@ -487,9 +611,7 @@
             <span class="feed-add-hint">${esc(t('feed_add_hint'))}</span>
           </form>
         </div>
-        ${category.feeds.length
-          ? `<div class="feeds-grid">${category.feeds.map((feed, i) => feedHtml(feed, i, category.feeds.length)).join('')}</div>`
-          : `<div class="category-empty">${esc(t('no_feeds'))}</div>`}
+        ${body}
       </section>`;
   }
 
@@ -505,10 +627,51 @@
     }
   }
 
+  function searchResultHtml(article) {
+    const link = safeUrl(article.link);
+    const image = safeUrl(article.image);
+    const title = link
+      ? `<a class="article-title" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(article.title)}</a>`
+      : `<span class="article-title">${esc(article.title)}</span>`;
+    return `
+      <li class="search-result${article.read ? ' article-read-done' : ''}" data-article-id="${article.id}">
+        ${image ? `<img class="search-result-img" src="${esc(image)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
+        <div class="search-result-body">
+          <div class="search-result-meta">${esc(article.category_name)} · ${esc(article.feed_name)} · ${esc(relativeTime(article.published_at || article.fetched_at))}</div>
+          ${title}
+          ${article.summary ? `<div class="search-result-summary">${esc(article.summary)}</div>` : ''}
+        </div>
+        ${starToggleHtml(article)}
+      </li>`;
+  }
+
+  function renderResultList(results, emptyText) {
+    boardEl.classList.remove('board--detail');
+    boardEl.classList.add('board--search');
+    if (!results.length) {
+      boardEl.innerHTML = `<div class="search-empty">${esc(emptyText)}</div>`;
+      return;
+    }
+    boardEl.innerHTML = `
+      <div class="search-head">${esc(t('search_results_count', { n: results.length }))}</div>
+      <ul class="search-results">${results.map(searchResultHtml).join('')}</ul>`;
+  }
+
   function render() {
     if (!state.board) return;
     hideArticlePreview();
     updateEditBar();
+
+    // Suchansicht hat Vorrang, solange eine Anfrage aktiv ist
+    if (state.searchQuery) {
+      renderResultList(state.searchResults, t('search_no_results'));
+      return;
+    }
+    if (state.savedView) {
+      renderResultList(state.savedResults, t('saved_empty'));
+      return;
+    }
+    boardEl.classList.remove('board--search');
 
     // Geöffnete Rubrik anzeigen (sofern sie noch existiert)
     if (state.view === 'category' && state.activeSlug) {
@@ -609,6 +772,255 @@
     btnEdit.classList.toggle('active', active);
     if (active && state.view === 'categories') inputCategoryName.focus();
     render();
+  }
+
+  // Lese-Status ---------------------------------------------------------------
+
+  function findArticleAny(id) {
+    if (state.searchQuery) {
+      const inSearch = state.searchResults.find((a) => a.id === id);
+      if (inSearch) return inSearch;
+    }
+    if (state.savedView) {
+      const inSaved = state.savedResults.find((a) => a.id === id);
+      if (inSaved) return inSaved;
+    }
+    return state.board ? findArticle(id) : null;
+  }
+
+  async function toggleArticleRead(id) {
+    const article = findArticleAny(id);
+    if (!article) return;
+    const read = !article.read;
+    // Optimistisch lokal aktualisieren (Board + evtl. Suchtreffer)
+    const boardArticle = findArticle(id);
+    if (boardArticle) {
+      boardArticle.read = read;
+      for (const category of state.board.categories) {
+        let catUnread = 0;
+        for (const feed of category.feeds) {
+          feed.unread = feed.articles.filter((a) => !a.read).length;
+          catUnread += feed.unread;
+        }
+        category.unread = catUnread;
+      }
+    }
+    const searchArticle = state.searchResults.find((a) => a.id === id);
+    if (searchArticle) searchArticle.read = read;
+    render();
+    try {
+      await api(`/api/articles/${id}/read`, { method: 'POST', body: JSON.stringify({ read }) });
+    } catch (error) {
+      toast(error.message, true);
+      await loadBoard();
+    }
+  }
+
+  async function markFeedRead(feedId) {
+    try {
+      await api(`/api/feeds/${feedId}/read`, { method: 'POST', body: JSON.stringify({ read: true }) });
+      await loadBoard();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  async function markCategoryRead(categoryId) {
+    try {
+      await api(`/api/categories/${categoryId}/read`, { method: 'POST', body: JSON.stringify({ read: true }) });
+      await loadBoard();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  function setUnreadOnly(active) {
+    state.unreadOnly = active;
+    localStorage.setItem('feedboard-unread-only', active ? '1' : '0');
+    btnUnread.classList.toggle('active', active);
+    btnUnread.setAttribute('aria-pressed', active ? 'true' : 'false');
+    render();
+  }
+
+  // Gespeicherte Artikel (Stern) ----------------------------------------------
+
+  async function toggleArticleStarred(id) {
+    const article = findArticleAny(id);
+    if (!article) return;
+    const starred = !article.starred;
+    const boardArticle = findArticle(id);
+    if (boardArticle) boardArticle.starred = starred;
+    const inSearch = state.searchResults.find((a) => a.id === id);
+    if (inSearch) inSearch.starred = starred;
+    if (state.savedView && !starred) {
+      state.savedResults = state.savedResults.filter((a) => a.id !== id);
+    } else {
+      const inSaved = state.savedResults.find((a) => a.id === id);
+      if (inSaved) inSaved.starred = starred;
+    }
+    render();
+    try {
+      await api(`/api/articles/${id}/star`, { method: 'POST', body: JSON.stringify({ starred }) });
+    } catch (error) {
+      toast(error.message, true);
+      await loadBoard();
+    }
+  }
+
+  async function loadSaved() {
+    try {
+      const data = await api('/api/saved');
+      state.savedResults = data.results || [];
+      render();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  function setSavedView(active) {
+    state.savedView = active;
+    btnSaved.classList.toggle('active', active);
+    btnSaved.setAttribute('aria-pressed', active ? 'true' : 'false');
+    if (active) {
+      inputSearch.value = '';
+      state.searchQuery = '';
+      state.searchResults = [];
+      btnSearchClear.hidden = true;
+      loadSaved();
+    } else {
+      render();
+    }
+  }
+
+  // Anzeige-Einstellungen ------------------------------------------------------
+
+  function applyDisplaySettings() {
+    document.body.classList.toggle('font-small', state.fontSize === 'small');
+    document.body.classList.toggle('font-large', state.fontSize === 'large');
+    document.body.classList.toggle('density-compact', state.density === 'compact');
+    segFontSize.querySelectorAll('[data-fontsize]').forEach((b) => b.classList.toggle('active', b.dataset.fontsize === state.fontSize));
+    segDensity.querySelectorAll('[data-density]').forEach((b) => b.classList.toggle('active', b.dataset.density === state.density));
+    chkThumbnails.checked = state.thumbnails;
+    chkFaviconCache.checked = state.faviconCache;
+  }
+
+  function setFontSize(size) {
+    state.fontSize = size;
+    localStorage.setItem('feedboard-fontsize', size);
+    applyDisplaySettings();
+  }
+
+  function setDensity(density) {
+    state.density = density;
+    localStorage.setItem('feedboard-density', density);
+    applyDisplaySettings();
+  }
+
+  function setThumbnails(on) {
+    state.thumbnails = on;
+    localStorage.setItem('feedboard-thumbnails', on ? '1' : '0');
+    applyDisplaySettings();
+    render();
+  }
+
+  function setFaviconCache(on) {
+    state.faviconCache = on;
+    localStorage.setItem('feedboard-favicon-cache', on ? '1' : '0');
+    applyDisplaySettings();
+    render();
+  }
+
+  // Mute-Wörter ----------------------------------------------------------------
+
+  async function loadMuteWords() {
+    try {
+      const data = await api('/api/settings/mute');
+      inputMute.value = (data.words || []).join('\n');
+    } catch { /* egal */ }
+  }
+
+  async function saveMuteWords() {
+    try {
+      await api('/api/settings/mute', { method: 'PUT', body: JSON.stringify({ words: inputMute.value }) });
+      toast(t('toast_mute_saved'));
+      await loadBoard();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  // Suche ----------------------------------------------------------------------
+
+  let searchTimer = null;
+
+  async function runSearch(query) {
+    try {
+      const data = await api(`/api/search?q=${encodeURIComponent(query)}`);
+      // Nur übernehmen, wenn die Anfrage noch aktuell ist
+      if (state.searchQuery === query) {
+        state.searchResults = data.results || [];
+        render();
+      }
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  function onSearchInput(value) {
+    const query = value.trim();
+    if (query && state.savedView) {
+      state.savedView = false;
+      btnSaved.classList.remove('active');
+      btnSaved.setAttribute('aria-pressed', 'false');
+    }
+    state.searchQuery = query;
+    btnSearchClear.hidden = query.length === 0;
+    if (searchTimer) clearTimeout(searchTimer);
+    if (!query) {
+      state.searchResults = [];
+      render();
+      return;
+    }
+    searchTimer = setTimeout(() => runSearch(query), 250);
+  }
+
+  function clearSearch() {
+    inputSearch.value = '';
+    state.searchQuery = '';
+    state.searchResults = [];
+    btnSearchClear.hidden = true;
+    render();
+  }
+
+  // Touch-Vorschau-Sheet -------------------------------------------------------
+
+  function isTouchDevice() {
+    return matchMedia('(hover: none)').matches;
+  }
+
+  function openPreviewSheet(article) {
+    const link = safeUrl(article.link);
+    const image = safeUrl(article.image);
+    previewSheetCard.innerHTML = `
+      ${image ? `<img class="sheet-img" src="${esc(image)}" alt="" onerror="this.remove()">` : ''}
+      <div class="sheet-body">
+        <h3 class="sheet-title">${esc(article.title)}</h3>
+        ${article.summary ? `<p class="sheet-summary">${esc(article.summary)}</p>` : ''}
+        <div class="sheet-actions">
+          ${link ? `<a class="btn btn-accent" href="${esc(link)}" target="_blank" rel="noopener noreferrer" data-action="sheet-close">${esc(t('open_article'))}</a>` : ''}
+          <button type="button" class="btn" data-action="sheet-close">${esc(t('cancel'))}</button>
+        </div>
+      </div>`;
+    previewSheet.hidden = false;
+    previewSheet.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('sheet-open');
+  }
+
+  function closePreviewSheet() {
+    previewSheet.hidden = true;
+    previewSheet.setAttribute('aria-hidden', 'true');
+    previewSheetCard.innerHTML = '';
+    document.body.classList.remove('sheet-open');
   }
 
   async function refreshAll() {
@@ -805,11 +1217,12 @@
   }
 
   boardEl.addEventListener('mouseover', (event) => {
+    if (isTouchDevice()) return; // auf Touch-Geräten übernimmt das Sheet
     const link = event.target.closest('.article-title');
     if (!link || link === previewLink) return;
     const articleEl = link.closest('[data-article-id]');
     if (!articleEl) return;
-    const article = findArticle(Number(articleEl.dataset.articleId));
+    const article = findArticleAny(Number(articleEl.dataset.articleId));
     if (!article || (!article.image && !article.summary)) { hideArticlePreview(); return; }
     clearPreviewTimer();
     previewLink = link;
@@ -870,6 +1283,18 @@
   // -------------------------------------------------------------------------
 
   boardEl.addEventListener('click', async (event) => {
+    // Auf Touch-Geräten: Tippen auf einen Artikel-Link öffnet das Vorschau-Sheet
+    const titleLink = event.target.closest('.article-title');
+    if (titleLink && isTouchDevice()) {
+      const articleEl = titleLink.closest('[data-article-id]');
+      const article = articleEl ? findArticleAny(Number(articleEl.dataset.articleId)) : null;
+      if (article && (article.image || article.summary)) {
+        event.preventDefault();
+        openPreviewSheet(article);
+        return;
+      }
+    }
+
     const actionEl = event.target.closest('[data-action]');
     if (!actionEl || actionEl.tagName === 'FORM') return;
 
@@ -899,6 +1324,18 @@
           articleEl.classList.toggle('expanded');
           break;
         }
+        case 'toggle-read':
+          await toggleArticleRead(Number(articleEl.dataset.articleId));
+          break;
+        case 'toggle-star':
+          await toggleArticleStarred(Number(articleEl.dataset.articleId));
+          break;
+        case 'feed-mark-read':
+          await markFeedRead(feedId);
+          break;
+        case 'category-mark-read':
+          await markCategoryRead(categoryId);
+          break;
         case 'show-more':
           state.showAll.add(feedId);
           render();
@@ -1045,8 +1482,56 @@
   });
 
   btnRefresh.addEventListener('click', refreshAll);
-  btnEdit.addEventListener('click', () => setEditMode(!state.editMode));
-  langButtons.forEach((btn) => btn.addEventListener('click', () => setLang(btn.dataset.lang)));
+  btnEdit.addEventListener('click', () => {
+    setEditMode(!state.editMode);
+    setSettingsOpen(false);
+  });
+  btnLang.addEventListener('click', () => setLang(state.lang === 'de' ? 'ru' : 'de'));
+
+  // Einstellungs-Zahnrad: auf-/zuklappen
+  function setSettingsOpen(open) {
+    settingsEl.classList.toggle('open', open);
+    settingsMenu.hidden = !open;
+    btnSettings.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  btnSettings.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setSettingsOpen(settingsMenu.hidden);
+  });
+  document.addEventListener('click', (event) => {
+    if (!settingsEl.contains(event.target)) setSettingsOpen(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') setSettingsOpen(false);
+  });
+
+  btnUnread.addEventListener('click', () => setUnreadOnly(!state.unreadOnly));
+  btnSaved.addEventListener('click', () => setSavedView(!state.savedView));
+
+  // Anzeige-Einstellungen im Zahnrad
+  segFontSize.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-fontsize]');
+    if (btn) setFontSize(btn.dataset.fontsize);
+  });
+  segDensity.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-density]');
+    if (btn) setDensity(btn.dataset.density);
+  });
+  chkThumbnails.addEventListener('change', () => setThumbnails(chkThumbnails.checked));
+  chkFaviconCache.addEventListener('change', () => setFaviconCache(chkFaviconCache.checked));
+  btnMuteSave.addEventListener('click', saveMuteWords);
+
+  inputSearch.addEventListener('input', () => onSearchInput(inputSearch.value));
+  inputSearch.addEventListener('keydown', (event) => { if (event.key === 'Escape') clearSearch(); });
+  btnSearchClear.addEventListener('click', clearSearch);
+
+  // Vorschau-Sheet schließen (Backdrop, Schließen-Button, „Öffnen"-Link)
+  previewSheet.addEventListener('click', (event) => {
+    if (event.target.closest('[data-action="sheet-close"]')) closePreviewSheet();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !previewSheet.hidden) closePreviewSheet();
+  });
 
   // -------------------------------------------------------------------------
   // Theme
@@ -1074,6 +1559,19 @@
   applyStaticI18n();
   updateLangButtons();
 
+  state.unreadOnly = localStorage.getItem('feedboard-unread-only') === '1';
+  btnUnread.classList.toggle('active', state.unreadOnly);
+  btnUnread.setAttribute('aria-pressed', state.unreadOnly ? 'true' : 'false');
+
+  // Anzeige-Einstellungen laden und anwenden
+  const savedFont = localStorage.getItem('feedboard-fontsize');
+  state.fontSize = ['small', 'normal', 'large'].includes(savedFont) ? savedFont : 'normal';
+  state.density = localStorage.getItem('feedboard-density') === 'compact' ? 'compact' : 'comfortable';
+  state.thumbnails = localStorage.getItem('feedboard-thumbnails') === '1';
+  state.faviconCache = localStorage.getItem('feedboard-favicon-cache') === '1';
+  applyDisplaySettings();
+  loadMuteWords();
+
   applyHashToState();
   updateClock();
   setInterval(updateClock, 60 * 1000);
@@ -1081,7 +1579,16 @@
   loadBoard();
 
   setInterval(() => {
-    // Im Bearbeitungsmodus nicht neu rendern (würde Formulareingaben verwerfen)
-    if (!state.editMode && !state.renaming) loadBoard({ silent: true });
+    // Nicht neu rendern, während bearbeitet, gesucht oder ein Sheet offen ist
+    if (!state.editMode && !state.renaming && !state.editingCategory && !state.searchQuery && !state.savedView && previewSheet.hidden) {
+      loadBoard({ silent: true });
+    }
   }, AUTO_RELOAD_MS);
+
+  // Service-Worker für PWA/Offline registrieren
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => { /* egal */ });
+    });
+  }
 })();

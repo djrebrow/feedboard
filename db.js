@@ -67,6 +67,49 @@ ensureColumn('categories', 'slug', 'TEXT');
 ensureColumn('articles', 'image_url', 'TEXT');
 // Feed-Typ: 'rss' (Standard) oder 'telegram'
 ensureColumn('feeds', 'type', 'TEXT');
+// Lese-Zeitpunkt eines Artikels (NULL = ungelesen)
+ensureColumn('articles', 'read_at', 'TEXT');
+// Speicher-Zeitpunkt eines Artikels (NULL = nicht gespeichert)
+ensureColumn('articles', 'starred_at', 'TEXT');
+
+// Schlüssel-Wert-Einstellungen (z. B. Mute-Wörter)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+  );
+`);
+
+function getSetting(key, fallback = null) {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+  return row ? row.value : fallback;
+}
+
+function setSetting(key, value) {
+  db.prepare(`
+    INSERT INTO settings (key, value) VALUES (?, ?)
+    ON CONFLICT (key) DO UPDATE SET value = excluded.value
+  `).run(key, value ?? null);
+}
+
+function getMuteWords() {
+  const raw = getSetting('mute_words', '') || '';
+  return raw.split('\n').map((w) => w.trim()).filter(Boolean);
+}
+
+function setMuteWords(words) {
+  const clean = (Array.isArray(words) ? words : String(words || '').split('\n'))
+    .map((w) => w.trim())
+    .filter(Boolean);
+  setSetting('mute_words', clean.join('\n'));
+  return clean;
+}
+
+function isMuted(article, muteLower) {
+  if (!muteLower.length) return false;
+  const haystack = `${article.title || ''}\n${article.summary || ''}`.toLowerCase();
+  return muteLower.some((w) => haystack.includes(w));
+}
 
 // ---------------------------------------------------------------------------
 // Slug-Erzeugung (de/ru-Transliteration → URL-tauglicher Anker)
@@ -230,9 +273,11 @@ function upsertArticle({ feedId, guid, title, link, summary, imageUrl, published
 }
 
 function pruneArticles(feedId, keep = 30) {
+  // Gespeicherte Artikel (Stern) werden nie gelöscht
   db.prepare(`
     DELETE FROM articles
     WHERE feed_id = ?
+      AND starred_at IS NULL
       AND id NOT IN (
         SELECT id FROM articles
         WHERE feed_id = ?
@@ -244,7 +289,7 @@ function pruneArticles(feedId, keep = 30) {
 
 function getArticlesForBoard(limitPerFeed = 30) {
   return db.prepare(`
-    SELECT id, feed_id, guid, title, link, summary, image_url, published_at, fetched_at
+    SELECT id, feed_id, guid, title, link, summary, image_url, read_at, starred_at, published_at, fetched_at
     FROM (
       SELECT a.*,
              ROW_NUMBER() OVER (
@@ -257,6 +302,101 @@ function getArticlesForBoard(limitPerFeed = 30) {
   `).all(limitPerFeed);
 }
 
+// Lese-Status ----------------------------------------------------------------
+
+function setArticleRead(id, read) {
+  db.prepare("UPDATE articles SET read_at = CASE WHEN ? THEN datetime('now') ELSE NULL END WHERE id = ?")
+    .run(read ? 1 : 0, id);
+}
+
+function setFeedRead(feedId, read) {
+  db.prepare("UPDATE articles SET read_at = CASE WHEN ? THEN datetime('now') ELSE NULL END WHERE feed_id = ?")
+    .run(read ? 1 : 0, feedId);
+}
+
+function setCategoryRead(categoryId, read) {
+  db.prepare(`
+    UPDATE articles SET read_at = CASE WHEN ? THEN datetime('now') ELSE NULL END
+    WHERE feed_id IN (SELECT id FROM feeds WHERE category_id = ?)
+  `).run(read ? 1 : 0, categoryId);
+}
+
+// Gespeicherte Artikel (Stern) -----------------------------------------------
+
+function setArticleStarred(id, starred) {
+  db.prepare("UPDATE articles SET starred_at = CASE WHEN ? THEN datetime('now') ELSE NULL END WHERE id = ?")
+    .run(starred ? 1 : 0, id);
+}
+
+function getSavedArticles(limit = 200) {
+  return db.prepare(`
+    SELECT a.id, a.title, a.link, a.summary, a.image_url, a.read_at, a.starred_at, a.published_at, a.fetched_at,
+           f.name AS feed_name, f.site_url AS feed_site_url, f.rss_url AS feed_rss_url,
+           c.name AS category_name, c.slug AS category_slug
+    FROM articles a
+    JOIN feeds f ON f.id = a.feed_id
+    JOIN categories c ON c.id = f.category_id
+    WHERE a.starred_at IS NOT NULL
+    ORDER BY a.starred_at DESC
+    LIMIT ?
+  `).all(limit).map((row) => ({
+    id: row.id,
+    title: row.title,
+    link: row.link,
+    summary: row.summary,
+    image: row.image_url || null,
+    read: !!row.read_at,
+    starred: true,
+    published_at: row.published_at,
+    fetched_at: row.fetched_at,
+    feed_name: row.feed_name,
+    feed_site_url: row.feed_site_url,
+    feed_rss_url: row.feed_rss_url,
+    category_name: row.category_name,
+    category_slug: row.category_slug,
+  }));
+}
+
+// Volltextsuche (JS-seitig, damit Groß-/Kleinschreibung auch bei Kyrillisch passt)
+function searchArticles(query, limit = 100) {
+  const needle = String(query || '').trim().toLowerCase();
+  if (!needle) return [];
+  const rows = db.prepare(`
+    SELECT a.id, a.title, a.link, a.summary, a.image_url, a.read_at, a.starred_at, a.published_at, a.fetched_at,
+           f.name AS feed_name, f.site_url AS feed_site_url, f.rss_url AS feed_rss_url,
+           c.name AS category_name, c.slug AS category_slug
+    FROM articles a
+    JOIN feeds f ON f.id = a.feed_id
+    JOIN categories c ON c.id = f.category_id
+    ORDER BY COALESCE(a.published_at, a.fetched_at) DESC, a.id DESC
+  `).all();
+
+  const results = [];
+  for (const row of rows) {
+    const haystack = `${row.title || ''}\n${row.summary || ''}`.toLowerCase();
+    if (haystack.includes(needle)) {
+      results.push({
+        id: row.id,
+        title: row.title,
+        link: row.link,
+        summary: row.summary,
+        image: row.image_url || null,
+        read: !!row.read_at,
+        starred: !!row.starred_at,
+        published_at: row.published_at,
+        fetched_at: row.fetched_at,
+        feed_name: row.feed_name,
+        feed_site_url: row.feed_site_url,
+        feed_rss_url: row.feed_rss_url,
+        category_name: row.category_name,
+        category_slug: row.category_slug,
+      });
+      if (results.length >= limit) break;
+    }
+  }
+  return results;
+}
+
 // ---------------------------------------------------------------------------
 // Gesamtes Board als verschachtelte Struktur
 // ---------------------------------------------------------------------------
@@ -265,9 +405,12 @@ function getBoard() {
   const categories = getCategories();
   const feeds = getFeeds();
   const articles = getArticlesForBoard(30);
+  const muteLower = getMuteWords().map((w) => w.toLowerCase());
 
   const articlesByFeed = new Map();
   for (const article of articles) {
+    // Stumm geschaltete Artikel ausblenden (gespeicherte bleiben sichtbar)
+    if (!article.starred_at && isMuted(article, muteLower)) continue;
     if (!articlesByFeed.has(article.feed_id)) articlesByFeed.set(article.feed_id, []);
     articlesByFeed.get(article.feed_id).push({
       id: article.id,
@@ -275,6 +418,8 @@ function getBoard() {
       link: article.link,
       summary: article.summary,
       image: article.image_url || null,
+      read: !!article.read_at,
+      starred: !!article.starred_at,
       published_at: article.published_at,
       fetched_at: article.fetched_at,
     });
@@ -283,6 +428,7 @@ function getBoard() {
   const feedsByCategory = new Map();
   for (const feed of feeds) {
     if (!feedsByCategory.has(feed.category_id)) feedsByCategory.set(feed.category_id, []);
+    const feedArticles = articlesByFeed.get(feed.id) || [];
     feedsByCategory.get(feed.category_id).push({
       id: feed.id,
       name: feed.name,
@@ -291,18 +437,23 @@ function getBoard() {
       site_url: feed.site_url,
       last_fetched_at: feed.last_fetched_at,
       last_error: feed.last_error,
-      articles: articlesByFeed.get(feed.id) || [],
+      unread: feedArticles.filter((a) => !a.read).length,
+      articles: feedArticles,
     });
   }
 
   return {
-    categories: categories.map((category) => ({
-      id: category.id,
-      name: category.name,
-      slug: category.slug || null,
-      logo: category.logo || null,
-      feeds: feedsByCategory.get(category.id) || [],
-    })),
+    categories: categories.map((category) => {
+      const categoryFeeds = feedsByCategory.get(category.id) || [];
+      return {
+        id: category.id,
+        name: category.name,
+        slug: category.slug || null,
+        logo: category.logo || null,
+        unread: categoryFeeds.reduce((sum, f) => sum + f.unread, 0),
+        feeds: categoryFeeds,
+      };
+    }),
   };
 }
 
@@ -362,6 +513,16 @@ module.exports = {
   markFeedError,
   upsertArticle,
   pruneArticles,
+  setArticleRead,
+  setFeedRead,
+  setCategoryRead,
+  setArticleStarred,
+  getSavedArticles,
+  searchArticles,
+  getSetting,
+  setSetting,
+  getMuteWords,
+  setMuteWords,
   getBoard,
   seedIfEmpty,
 };

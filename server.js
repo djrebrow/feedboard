@@ -177,6 +177,87 @@ app.post('/api/feeds/reorder', asyncHandler(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// ---------------------------------------------------------------------------
+// API: Lese-Status
+// ---------------------------------------------------------------------------
+
+app.post('/api/articles/:id/read', asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  store.setArticleRead(id, req.body?.read !== false);
+  res.json({ ok: true });
+}));
+
+app.post('/api/feeds/:id/read', asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!store.getFeed(id)) throw new Error('Feed nicht gefunden.');
+  store.setFeedRead(id, req.body?.read !== false);
+  res.json({ ok: true });
+}));
+
+app.post('/api/categories/:id/read', asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!store.getCategory(id)) throw new Error('Rubrik nicht gefunden.');
+  store.setCategoryRead(id, req.body?.read !== false);
+  res.json({ ok: true });
+}));
+
+// ---------------------------------------------------------------------------
+// API: Gespeicherte Artikel (Stern)
+// ---------------------------------------------------------------------------
+
+app.post('/api/articles/:id/star', asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  store.setArticleStarred(id, req.body?.starred !== false);
+  res.json({ ok: true });
+}));
+
+app.get('/api/saved', asyncHandler(async (req, res) => {
+  res.json({ results: store.getSavedArticles(200) });
+}));
+
+// ---------------------------------------------------------------------------
+// API: Einstellungen (Mute-Wörter)
+// ---------------------------------------------------------------------------
+
+app.get('/api/settings/mute', (req, res) => {
+  res.json({ words: store.getMuteWords() });
+});
+
+app.put('/api/settings/mute', asyncHandler(async (req, res) => {
+  res.json({ words: store.setMuteWords(req.body?.words ?? []) });
+}));
+
+// ---------------------------------------------------------------------------
+// API: Favicon-Proxy mit lokalem Cache (Offline-tauglich, ohne Google-Aufruf)
+// ---------------------------------------------------------------------------
+
+const FAVICON_DIR = path.join(__dirname, 'data', 'favicons');
+fs.mkdirSync(FAVICON_DIR, { recursive: true });
+
+app.get('/api/favicon', asyncHandler(async (req, res) => {
+  const host = String(req.query?.host || '').toLowerCase().replace(/[^a-z0-9.-]/g, '');
+  if (!host || host.length > 100 || host.includes('..')) throw new Error('Ungültiger Host.');
+  const file = path.join(FAVICON_DIR, `${host}.png`);
+
+  if (!fs.existsSync(file)) {
+    const source = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`;
+    const response = await fetch(source, { signal: AbortSignal.timeout(10000) });
+    if (!response.ok) throw new Error('Favicon nicht gefunden.');
+    fs.writeFileSync(file, Buffer.from(await response.arrayBuffer()));
+  }
+  res.set('Cache-Control', 'public, max-age=604800');
+  res.type('png').send(fs.readFileSync(file));
+}));
+
+// ---------------------------------------------------------------------------
+// API: Volltextsuche
+// ---------------------------------------------------------------------------
+
+app.get('/api/search', asyncHandler(async (req, res) => {
+  const query = String(req.query?.q || '').trim();
+  res.json({ query, results: query ? store.searchArticles(query, 100) : [] });
+}));
+
 app.post('/api/feeds/:id/refresh', asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
   const feed = store.getFeed(id);

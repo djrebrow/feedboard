@@ -1,0 +1,14 @@
+{
+  "name": "Feedboard",
+  "short_name": "Feedboard",
+  "description": "RSS- & Telegram-Dashboard",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f6f2ea",
+  "theme_color": "#b3341e",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
