@@ -7,6 +7,7 @@ const { JSDOM } = require('jsdom');
 
 const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
 const appJs = fs.readFileSync(path.join(__dirname, 'public', 'app.js'), 'utf8');
+const scheduleJs = fs.readFileSync(path.join(__dirname, 'public', 'schedule.js'), 'utf8');
 
 // Die Wörterbücher liegen seit dem i18n-Umbau als eigene Dateien und werden
 // zur Laufzeit geholt — der Test muss sie also ausliefern können.
@@ -62,6 +63,15 @@ const boardData = {
   authenticated: true,
 };
 
+// Antwort von /api/settings/integrations — werktags 6:30
+const integrationsData = {
+  telegram: { configured: true, token_set: true, token_hint: '····1234', chat_id: '-100999' },
+  ai: { configured: true, key_set: true, key_hint: '····abcd', model: 'claude-opus-5' },
+  briefing: { cron: '30 6 * * 1,2,3,4,5', lang: 'de', hours: 24 },
+  schedule: { active: true, cron: '30 6 * * 1,2,3,4,5' },
+  timezone: 'Europe/Berlin',
+};
+
 async function run() {
   const dom = new JSDOM(html, {
     url: 'http://localhost:8321/',
@@ -86,6 +96,9 @@ async function run() {
     if (String(url).includes('/api/board')) {
       return { ok: true, status: 200, json: async () => structuredClone(boardData) };
     }
+    if (String(url).includes('/api/settings/integrations')) {
+      return { ok: true, status: 200, json: async () => structuredClone(integrationsData) };
+    }
     return { ok: true, status: 200, json: async () => ({ ok: true }) };
   };
 
@@ -96,7 +109,8 @@ async function run() {
   // wählen und alle Textprüfungen unten hingen an der Laune der Umgebung.
   window.localStorage.setItem('feedboard-lang', 'de');
 
-  // app.js im Fenster-Kontext ausführen
+  // app.js im Fenster-Kontext ausführen (schedule.js zuerst, app.js braucht es)
+  window.eval(scheduleJs);
   window.eval(appJs);
 
   // Sprachdatei und loadBoard sind async — kurz warten
@@ -292,6 +306,29 @@ async function run() {
 
   check('Werkzeugleiste: Stift und Design sind heraus gewandert',
     !!doc.querySelector('.toolbar #btn-edit') && !!doc.querySelector('.toolbar #btn-theme'));
+
+  // ---- Briefing-Zeitplan: Uhrzeit und Wochentage statt cron ----
+  const schedule = require('./public/schedule.js');
+  check('Zeitplan: Uhrzeit und Tage werden zu cron',
+    schedule.zuCron({ zeit: '06:30', tage: [1, 2, 3, 4, 5] }) === '30 6 * * 1,2,3,4,5');
+  check('Zeitplan: alle Tage ergeben den Stern',
+    schedule.zuCron({ zeit: '07:00', tage: [0, 1, 2, 3, 4, 5, 6] }) === '0 7 * * *');
+  check('Zeitplan: ohne Tag kein Ausdruck', schedule.zuCron({ zeit: '07:00', tage: [] }) === '');
+  check('Zeitplan: cron wird wieder zerlegt',
+    JSON.stringify(schedule.ausCron('30 6 * * 1-5')) === JSON.stringify({ zeit: '06:30', tage: [1, 2, 3, 4, 5] }));
+  check('Zeitplan: Ausgefallenes bleibt unzerlegt', schedule.ausCron('*/20 8-18 * * 1-5') === null);
+
+  doc.getElementById('btn-settings').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  doc.querySelector('#settings-nav [data-section="integrations"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 120));
+  check('Zeitplan: sieben Wochentag-Knöpfe', doc.querySelectorAll('#briefing-days .weekday').length === 7);
+  check('Zeitplan: Uhrzeit aus dem gespeicherten cron', doc.getElementById('input-briefing-time').value === '06:30');
+  check('Zeitplan: genau die Werktage aktiv',
+    [...doc.querySelectorAll('#briefing-days .weekday.active')].map((b) => b.dataset.day).sort().join(',') === '1,2,3,4,5');
+  check('Zeitplan: cron-Feld bleibt verborgen', doc.getElementById('briefing-cron-advanced').hidden === true);
+  check('Zeitplan: Zeitzone des Servers steht dabei', doc.getElementById('briefing-tz').textContent === 'Europe/Berlin');
+  check('Zugänge: Token nur als Hinweis, Feld leer',
+    doc.getElementById('input-tg-token').value === '' && doc.getElementById('input-tg-token').placeholder.includes('····1234'));
 
   console.log(results.join('\n'));
   console.log(errors.length ? `\nJS-Fehler: ${errors.map(String).join(' | ')}` : '\nAlle Smoke-Tests abgeschlossen.');

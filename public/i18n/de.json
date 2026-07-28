@@ -225,5 +225,16 @@
   "section_keyboard": "Tastatur",
   "lang_label": "Sprache",
   "close": "Schließen",
-  "integrations_locked": "Zum Einrichten bitte anmelden."
+  "integrations_locked": "Zum Einrichten bitte anmelden.",
+  "briefing_time_label": "Briefing um",
+  "briefing_days_label": "An diesen Tagen",
+  "day_mon": "Mo",
+  "day_tue": "Di",
+  "day_wed": "Mi",
+  "day_thu": "Do",
+  "day_fri": "Fr",
+  "day_sat": "Sa",
+  "day_sun": "So",
+  "briefing_off_hint": "Ohne Tage bleibt das Briefing aus.",
+  "briefing_every_day": "täglich"
 }

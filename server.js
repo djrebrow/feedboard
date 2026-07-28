@@ -478,8 +478,14 @@ app.put('/api/settings/mute', auth.protect, asyncHandler(async (req, res) => {
 // vier Zeichen zum Wiedererkennen.
 
 app.get('/api/settings/integrations', auth.protect, (req, res) => {
-  res.json({ ...config.publicState(), schedule: briefingStatus() });
+  res.json({ ...config.publicState(), schedule: briefingStatus(), timezone: serverTimezone() });
 });
+
+// Der Zeitplan laeuft in der Zeitzone des Servers (in Docker ueber TZ gesetzt),
+// nicht in der des Browsers. Die Oberflaeche schreibt sie deshalb an die Uhrzeit.
+function serverTimezone() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { return ''; }
+}
 
 app.put('/api/settings/integrations', auth.protect, asyncHandler(async (req, res) => {
   const eingabe = req.body ?? {};
@@ -494,7 +500,7 @@ app.put('/api/settings/integrations', auth.protect, asyncHandler(async (req, res
   config.setMany(eingabe);
   // Zeitplan, Schlüssel und Bot können sich gerade geändert haben — neu setzen.
   const schedule = applyBriefingSchedule();
-  res.json({ ...config.publicState(), schedule });
+  res.json({ ...config.publicState(), schedule, timezone: serverTimezone() });
 }));
 
 // Probenachricht: ohne sie faellt ein Tippfehler erst beim naechsten Briefing auf.

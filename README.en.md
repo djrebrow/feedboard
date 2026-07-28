@@ -8,12 +8,12 @@ Self-hosted dashboard for RSS/Atom feeds and public Telegram channels. Categorie
 
 ### Managing sources
 
-- **Categories & feeds fully managed in the UI** (edit mode via the pencil icon in the gear menu)
+- **Categories & feeds fully managed in the UI** (edit mode via the pencil icon in the toolbar)
 - **Feed autodiscovery**: enter a plain website address (e.g. `heise.de`) — the RSS/Atom feed is found automatically, and the name is taken from the feed if none is given
 - **Public Telegram channels** as a source: enter `@channel` or `t.me/channel`; the public web preview is parsed
 - **Category logos** can be uploaded (stored as image data in the database), and each category has its own anchor for the address bar
 - Categories and feeds can be reordered freely
-- **OPML import and export** from the gear menu — the usual way in and out of other readers
+- **OPML import and export** from the settings window (section "Data") — the usual way in and out of other readers
 - **Pause feeds**; a feed that fails 20 times in a row pauses itself and is no longer fetched (marked "paused" in the feed header)
 
 ### Reading
@@ -27,32 +27,33 @@ Self-hosted dashboard for RSS/Atom feeds and public Telegram channels. Categorie
 - **Full-text search** across all available articles — title, summary, fetched full text and AI summary
 - **Hiding by keyword** (mute words); saved articles are never hidden
 - **Fetch the full text** for feeds that only ship teasers: the article body is pulled from the page and stored in the database (readable offline too)
-- **Keyboard navigation**: `j`/`k` move between articles, `o` open, `m` read, `s` save, `r` refresh, `u` unread only, `a` all articles, `/` search, `Esc` back (overview in the gear menu)
+- **Keyboard navigation**: `j`/`k` move between articles, `o` open, `m` read, `s` save, `r` refresh, `u` unread only, `a` all articles, `/` search, `Esc` back (overview in the settings window)
 
 ### Optional: AI and sharing
 
-Both stay switched off until they are set up — the buttons never even appear. Set them up in the gear menu under "Set up integrations" (visible once signed in) or via environment variables.
+Both stay switched off until they are set up — the buttons never even appear. Set them up in the settings window under "Integrations" (visible once signed in) or via environment variables.
 
 - **AI summary** (three sentences) and **translation** per article via the Claude API; both are cached, so each article costs at most one call
-- **Daily briefing**: every unread article of the past 24 hours grouped by topic (gear menu); reused for six hours
+- **Daily briefing**: every unread article of the past 24 hours grouped by topic (settings window, section "Integrations"); reused for six hours
 - **Share an article via Telegram** — to your own chat through a bot
-- **Scheduled briefing via Telegram**: at a time of your choosing, Feedboard sends the briefing to the chat on its own
-- **Set-up in the menu**: bot token, chat ID, AI key, model and briefing schedule can be set in the gear menu once signed in, including a button for a test message. The secrets never leave the server again — only their last four characters are shown
+- **Scheduled briefing via Telegram**: pick a time and the weekdays in the settings window, Feedboard does the rest. The time applies in the server's time zone, which is shown next to the field
+- **Set-up in the window**: bot token, chat ID, AI key, model and briefing schedule can be set under "Integrations" once signed in, including a button for a test message. The secrets never leave the server again — only their last four characters are shown
 
 ### Security & backup
 
 - **Reading stays open for everyone, editing is protected.** Once a password is set, only interventions require a login: creating, changing, reordering and deleting categories and feeds, OPML import, restore, mute words, downloading a backup — plus anything that costs money or goes outward (AI calls, sharing). Board, search, read state and stars stay open.
 - Clicking the pencil then opens a **login dialog** instead of edit mode, and continues straight into it afterwards. A signed cookie keeps you logged in for 30 days. Ten failed attempts per quarter hour and source IP is the limit.
-- **Set and change the password in the gear menu** under "Zugang". It is stored as an scrypt hash in the database; `FEEDBOARD_PASSWORD` creates the first one on the very first start. Changing it logs every other session out.
+- **Set and change the password in the settings window** under "Access". It is stored as an scrypt hash in the database; `FEEDBOARD_PASSWORD` creates the first one on the very first start. Changing it logs every other session out.
 - With no password set everything stays open as before — an update changes nothing for existing installations.
 - **JSON backup** to download and restore (categories, feeds, articles, settings). Credentials are deliberately left out and survive a restore. Restoring replaces the rest and runs in a transaction — if it fails, the old database is left untouched.
 
 ### Appearance & operation
 
-- **Theme: light, dark or system** — selectable in the gear menu; "system" follows the operating system setting and switches along with it while running. The sun/moon button remains as a quick light/dark toggle
+- **Settings as a window** with the sections Appearance, Reading, Integrations, Data, Access and Keyboard; full screen on phones
+- **Theme: light, dark or system** — selectable in the settings window; "system" follows the operating system setting and switches along with it while running. The sun/moon button remains as a quick light/dark toggle
 - **Display settings**: font size, row density, thumbnails in the list, and favicons optionally served from the local cache (no calls to external services while browsing)
-- **Merge duplicate stories**: in "All articles", the same story from several sources is bundled into one entry; the other sources are listed underneath and stay individually clickable. Can be turned off in the gear menu
-- **Bilingual interface** (German, Russian)
+- **Merge duplicate stories**: in "All articles", the same story from several sources is bundled into one entry; the other sources are listed underneath and stay individually clickable. Can be turned off in the settings window
+- **Trilingual interface** (German, English, Russian) — the browser language is picked up on the first visit, after that the choice in the settings window applies. Server messages are translated too
 - **Installable as a PWA**; the app shell and the most recently loaded data are available offline
 - **Automatic background refresh** (default: every 30 minutes) plus manual refresh, for a single feed or all of them
 - Per-feed error display (⚠ with details). 30 read articles are kept per feed; unread and saved ones stay (hard cap at 300 per feed)
@@ -84,7 +85,7 @@ The database lives in the `./data` folder and survives container restarts and up
 
 ## Configuration (environment variables)
 
-Telegram, the AI key and the briefing schedule can also be set **in the gear menu under "Set up integrations"** — visible once you are signed in. The environment variables seed these values on the very first start; after that the menu wins (the same behaviour as `FEEDBOARD_PASSWORD`). Starting with no environment variables at all works fine — set everything up in the menu.
+Telegram, the AI key and the briefing schedule can also be set **in the settings window under "Integrations"** — visible once you are signed in. The environment variables seed these values on the very first start; after that the settings window wins (the same behaviour as `FEEDBOARD_PASSWORD`). Starting with no environment variables at all works fine — set everything up in the settings window.
 
 | Variable                 | Default               | Meaning                                                                                                     |
 | ------------------------ | --------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -93,13 +94,13 @@ Telegram, the AI key and the briefing schedule can also be set **in the gear men
 | `DB_PATH`                | `./data/feedboard.db` | Path to the SQLite file                                                                                       |
 | `DEV_ASSETS`             | –                     | `1` = determine the asset version from file timestamps on every page request (for live frontend development)   |
 | `FEEDBOARD_PASSWORD`     | –                     | Creates the password on the very first start. Afterwards the one set in the menu applies. Empty = editing stays open. |
-| `ANTHROPIC_API_KEY`      | –                     | Seed value for the AI key (summary, translation, briefing). Afterwards the menu applies                        |
-| `ANTHROPIC_MODEL`        | `claude-opus-5`       | Seed value for the Claude model. Afterwards the menu applies                                                  |
-| `TELEGRAM_BOT_TOKEN`     | –                     | Seed value for the bot token (with `TELEGRAM_CHAT_ID`). Afterwards the menu applies                                             |
-| `TELEGRAM_CHAT_ID`       | –                     | Seed value for the target chat. Afterwards the menu applies                                                                               |
-| `BRIEFING_CRON`          | –                     | Seed value for the briefing schedule, e.g. `0 7 * * *`. Empty = off. Needs AI and Telegram. Afterwards the menu applies    |
-| `BRIEFING_LANG`          | `de`                  | Seed value for the briefing language (`de`, `en`, `ru`). Afterwards the menu applies                                                         |
-| `BRIEFING_HOURS`         | `24`                  | Seed value for the briefing look-back in hours (1–168). Afterwards the menu applies                                                    |
+| `ANTHROPIC_API_KEY`      | –                     | Seed value for the AI key (summary, translation, briefing). Afterwards the settings window applies                        |
+| `ANTHROPIC_MODEL`        | `claude-opus-5`       | Seed value for the Claude model. Afterwards the settings window applies                                                  |
+| `TELEGRAM_BOT_TOKEN`     | –                     | Seed value for the bot token (with `TELEGRAM_CHAT_ID`). Afterwards the settings window applies                                             |
+| `TELEGRAM_CHAT_ID`       | –                     | Seed value for the target chat. Afterwards the settings window applies                                                                               |
+| `BRIEFING_CRON`          | –                     | Seed value for the briefing schedule, e.g. `0 7 * * *`. Empty = off. Needs AI and Telegram. Afterwards the settings window applies    |
+| `BRIEFING_LANG`          | `de`                  | Seed value for the briefing language (`de`, `en`, `ru`). Afterwards the settings window applies                                                         |
+| `BRIEFING_HOURS`         | `24`                  | Seed value for the briefing look-back in hours (1–168). Afterwards the settings window applies                                                    |
 
 For Docker, the optional values are best kept in a `.env` next to `docker-compose.yml` — they are already passed through there.
 

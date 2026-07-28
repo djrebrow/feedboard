@@ -170,7 +170,23 @@
                           </div>
 
                           <div class="settings-field">
-                            <label class="settings-field-label" for="input-briefing-cron" data-i18n="briefing_cron_label">Briefing-Zeitplan</label>
+                            <label class="settings-field-label" for="input-briefing-time">
+                              <span data-i18n="briefing_time_label">Briefing um</span>
+                              <span class="settings-hint" id="briefing-tz"></span>
+                            </label>
+                            <input type="time" id="input-briefing-time" class="settings-input settings-input-narrow">
+                          </div>
+
+                          <div class="settings-field">
+                            <span class="settings-field-label" data-i18n="briefing_days_label">An diesen Tagen</span>
+                            <div class="weekdays" id="briefing-days"></div>
+                          </div>
+
+                          <!-- Auffangnetz: ein von Hand eingetragener Ausdruck, den die
+                               Auswahl oben nicht abbilden kann, wird hier angezeigt statt
+                               beim naechsten Speichern still ueberschrieben zu werden. -->
+                          <div class="settings-field" id="briefing-cron-advanced" hidden>
+                            <label class="settings-field-label" for="input-briefing-cron" data-i18n="briefing_cron_label">Zeitplan (cron)</label>
                             <input type="text" id="input-briefing-cron" class="settings-input" autocomplete="off" spellcheck="false" placeholder="0 7 * * *">
                           </div>
 
@@ -253,6 +269,7 @@
 
   <div id="toast-container" class="toast-container" aria-live="assertive"></div>
 
+  <script src="schedule.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

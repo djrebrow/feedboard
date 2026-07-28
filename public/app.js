@@ -96,6 +96,10 @@
   const inputAiKey = document.getElementById('input-ai-key');
   const inputAiModel = document.getElementById('input-ai-model');
   const inputBriefingCron = document.getElementById('input-briefing-cron');
+  const inputBriefingTime = document.getElementById('input-briefing-time');
+  const briefingDays = document.getElementById('briefing-days');
+  const briefingCronAdvanced = document.getElementById('briefing-cron-advanced');
+  const briefingTz = document.getElementById('briefing-tz');
   const inputBriefingHours = document.getElementById('input-briefing-hours');
   const selectBriefingLang = document.getElementById('select-briefing-lang');
   const clearTgToken = document.getElementById('clear-tg-token');
@@ -1104,6 +1108,60 @@
     return t('schedule_off');
   }
 
+  // ---- Briefing-Zeitplan: Uhrzeit und Wochentage statt cron ----------------
+  // Gespeichert wird weiterhin cron. Ein von Hand eingetragener Ausdruck, den
+  // die Auswahl nicht abbilden kann, wird im Feld für Fortgeschrittene
+  // sichtbar gemacht statt beim nächsten Speichern überschrieben zu werden.
+
+  const TAG_SCHLUESSEL = { 0: 'day_sun', 1: 'day_mon', 2: 'day_tue', 3: 'day_wed', 4: 'day_thu', 5: 'day_fri', 6: 'day_sat' };
+
+  function renderWeekdays(gewaehlt) {
+    briefingDays.innerHTML = FeedboardSchedule.WOCHENTAGE
+      .map((d) => `<button type="button" class="weekday${gewaehlt.includes(d) ? ' active' : ''}" data-day="${d}">${esc(t(TAG_SCHLUESSEL[d]))}</button>`)
+      .join('');
+  }
+
+  function gewaehlteTage() {
+    return [...briefingDays.querySelectorAll('.weekday.active')].map((b) => Number(b.dataset.day));
+  }
+
+  function applySchedule(cronAusdruck, zeitzone) {
+    const zerlegt = FeedboardSchedule.ausCron(cronAusdruck);
+    if (zerlegt) {
+      inputBriefingTime.value = zerlegt.zeit;
+      renderWeekdays(zerlegt.tage);
+      briefingCronAdvanced.hidden = true;
+      inputBriefingCron.value = '';
+    } else {
+      // Leer (= aus) oder zu ausgefallen für die Auswahl
+      inputBriefingTime.value = '';
+      renderWeekdays([]);
+      briefingCronAdvanced.hidden = !cronAusdruck;
+      inputBriefingCron.value = cronAusdruck || '';
+    }
+    // Die Uhrzeit gilt in der Zeitzone des Servers, nicht in der des Browsers —
+    // deshalb kommt sie vom Server und wird an die Uhrzeit geschrieben.
+    briefingTz.textContent = zeitzone || '';
+  }
+
+  // Was gespeichert wird: das Feld für Fortgeschrittene hat Vorrang, solange
+  // es sichtbar ist und etwas enthält.
+  function currentCron() {
+    if (!briefingCronAdvanced.hidden && inputBriefingCron.value.trim()) return inputBriefingCron.value.trim();
+    if (!inputBriefingTime.value) return '';
+    return FeedboardSchedule.zuCron({ zeit: inputBriefingTime.value, tage: gewaehlteTage() });
+  }
+
+  briefingDays.addEventListener('click', (event) => {
+    const knopf = event.target.closest('.weekday');
+    if (knopf) knopf.classList.toggle('active');
+  });
+
+  // Uhrzeit gesetzt, aber kein Tag gewählt: dann liefe nie etwas — alle Tage an
+  inputBriefingTime.addEventListener('change', () => {
+    if (inputBriefingTime.value && !gewaehlteTage().length) renderWeekdays([0, 1, 2, 3, 4, 5, 6]);
+  });
+
   function applyIntegrations(data) {
     inputTgToken.value = '';
     inputAiKey.value = '';
@@ -1118,7 +1176,7 @@
 
     inputTgChat.value = data.telegram.chat_id || '';
     inputAiModel.value = data.ai.model || '';
-    inputBriefingCron.value = data.briefing.cron || '';
+    applySchedule(data.briefing.cron || '', data.timezone);
     inputBriefingHours.value = data.briefing.hours;
     selectBriefingLang.value = data.briefing.lang;
 
@@ -1145,7 +1203,7 @@
     const daten = {
       telegram_chat_id: inputTgChat.value,
       anthropic_model: inputAiModel.value,
-      briefing_cron: inputBriefingCron.value,
+      briefing_cron: currentCron(),
       briefing_hours: inputBriefingHours.value,
       briefing_lang: selectBriefingLang.value,
     };

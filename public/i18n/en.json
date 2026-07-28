@@ -225,5 +225,16 @@
   "section_keyboard": "Keyboard",
   "lang_label": "Language",
   "close": "Close",
-  "integrations_locked": "Please sign in to set this up."
+  "integrations_locked": "Please sign in to set this up.",
+  "briefing_time_label": "Briefing at",
+  "briefing_days_label": "On these days",
+  "day_mon": "Mon",
+  "day_tue": "Tue",
+  "day_wed": "Wed",
+  "day_thu": "Thu",
+  "day_fri": "Fri",
+  "day_sat": "Sat",
+  "day_sun": "Sun",
+  "briefing_off_hint": "With no days selected the briefing stays off.",
+  "briefing_every_day": "daily"
 }

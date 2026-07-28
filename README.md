@@ -8,12 +8,12 @@ Selbstgehostetes Dashboard für RSS-/Atom-Feeds und öffentliche Telegram-Kanäl
 
 ### Quellen verwalten
 
-- **Rubriken & Feeds komplett über die UI** (Bearbeitungsmodus über das Stift-Symbol im Zahnrad-Menü)
+- **Rubriken & Feeds komplett über die UI** (Bearbeitungsmodus über das Stift-Symbol in der Werkzeugleiste)
 - **Feed-Autodiscovery**: normale Website-Adresse eingeben (z. B. `heise.de`) — der RSS-/Atom-Feed wird automatisch gefunden; der Name wird aus dem Feed übernommen, wenn keiner angegeben ist
 - **Öffentliche Telegram-Kanäle** als Quelle: `@kanal` oder `t.me/kanal` eingeben, gelesen wird die öffentliche Web-Vorschau
 - **Rubrik-Logos** hochladen (werden als Bilddaten in der Datenbank abgelegt) und eigener Anker je Rubrik für die Adresszeile
 - Reihenfolge von Rubriken und Feeds frei sortierbar
-- **OPML-Import und -Export** über das Zahnrad-Menü — der übliche Umzugsweg von und zu anderen Readern
+- **OPML-Import und -Export** über das Einstellungsfenster (Bereich „Daten") — der übliche Umzugsweg von und zu anderen Readern
 - **Feeds pausieren**; Feeds, die 20-mal in Folge fehlschlagen, pausieren sich automatisch und werden nicht weiter abgerufen (Kennzeichnung „pausiert" im Feed-Kopf)
 
 ### Lesen
@@ -27,32 +27,33 @@ Selbstgehostetes Dashboard für RSS-/Atom-Feeds und öffentliche Telegram-Kanäl
 - **Volltextsuche** über alle vorliegenden Artikel — Titel, Kurzfassung, nachgeladener Volltext und KI-Zusammenfassung
 - **Ausblenden per Stichwort** (Mute-Wörter); gespeicherte Artikel bleiben davon unberührt
 - **Volltext nachladen** bei Feeds, die nur Anrisse liefern: der Artikeltext wird aus der Seite geholt und in der Datenbank abgelegt (auch offline lesbar)
-- **Tastatur-Navigation**: `j`/`k` Artikel wechseln, `o` öffnen, `m` gelesen, `s` speichern, `r` aktualisieren, `u` nur Ungelesene, `a` alle Artikel, `/` suchen, `Esc` zurück (Übersicht im Zahnrad-Menü)
+- **Tastatur-Navigation**: `j`/`k` Artikel wechseln, `o` öffnen, `m` gelesen, `s` speichern, `r` aktualisieren, `u` nur Ungelesene, `a` alle Artikel, `/` suchen, `Esc` zurück (Übersicht im Einstellungsfenster)
 
 ### Optional: KI und Teilen
 
-Beide Funktionen sind aus, solange sie nicht eingerichtet sind — die Knöpfe erscheinen dann gar nicht erst. Eingerichtet wird im Zahnrad-Menü unter „Zugänge einrichten“ (nur angemeldet sichtbar) oder über Umgebungsvariablen.
+Beide Funktionen sind aus, solange sie nicht eingerichtet sind — die Knöpfe erscheinen dann gar nicht erst. Eingerichtet wird im Einstellungsfenster unter „Zugänge“ (nur angemeldet sichtbar) oder über Umgebungsvariablen.
 
 - **KI-Kurzfassung** (drei Sätze) und **Übersetzung** je Artikel über die Claude API; beides wird zwischengespeichert, kostet also höchstens einen Aufruf je Artikel
-- **Tages-Briefing**: alle ungelesenen Artikel der letzten 24 Stunden nach Themen gebündelt (Zahnrad-Menü); wird sechs Stunden lang wiederverwendet
+- **Tages-Briefing**: alle ungelesenen Artikel der letzten 24 Stunden nach Themen gebündelt (Einstellungsfenster, Bereich „Zugänge"); wird sechs Stunden lang wiederverwendet
 - **Artikel per Telegram teilen** — an den eigenen Chat über einen Bot
-- **Geplantes Briefing per Telegram**: zu einer frei wählbaren Uhrzeit schickt Feedboard das Briefing von selbst in den Chat
-- **Einrichtung im Menü**: Bot-Token, Chat-ID, KI-Schlüssel, Modell und Briefing-Zeitplan sind nach der Anmeldung im Zahnrad-Menü setzbar, samt Knopf für eine Testnachricht. Die Geheimnisse verlassen den Server nie wieder — angezeigt werden nur ihre letzten vier Zeichen
+- **Geplantes Briefing per Telegram**: Uhrzeit und Wochentage im Einstellungsfenster wählen, den Rest erledigt Feedboard. Die Uhrzeit gilt in der Zeitzone des Servers, sie steht neben dem Feld
+- **Einrichtung im Fenster**: Bot-Token, Chat-ID, KI-Schlüssel, Modell und Briefing-Zeitplan sind nach der Anmeldung unter „Zugänge" setzbar, samt Knopf für eine Testnachricht. Die Geheimnisse verlassen den Server nie wieder — angezeigt werden nur ihre letzten vier Zeichen
 
 ### Sicherheit & Sicherung
 
 - **Lesen bleibt für alle frei, Bearbeiten ist geschützt.** Sobald ein Passwort gesetzt ist, verlangen nur noch Eingriffe eine Anmeldung: Rubriken und Feeds anlegen, ändern, sortieren und löschen, OPML-Import, Wiederherstellung, Mute-Wörter, Sicherung herunterladen — dazu alles, was Geld kostet oder nach außen geht (KI-Aufrufe, Teilen). Board, Suche, Lese-Status und Sterne bleiben offen.
 - Der Klick auf den Stift öffnet dann einen **Anmelde-Dialog** statt des Bearbeitungsmodus; danach geht es direkt weiter. Angemeldet bleibt man 30 Tage über ein signiertes Cookie. Nach zehn Fehlversuchen je Viertelstunde und Absender-IP ist Schluss.
-- **Passwort setzen und ändern im Zahnrad-Menü** unter „Zugang". Das Passwort liegt als scrypt-Hash in der Datenbank; `FEEDBOARD_PASSWORD` legt beim allerersten Start eines an. Eine Änderung meldet alle anderen Sitzungen ab.
+- **Passwort setzen und ändern im Einstellungsfenster** unter „Zugang". Das Passwort liegt als scrypt-Hash in der Datenbank; `FEEDBOARD_PASSWORD` legt beim allerersten Start eines an. Eine Änderung meldet alle anderen Sitzungen ab.
 - Ohne gesetztes Passwort bleibt alles wie bisher offen — bestehende Installationen ändern sich durch ein Update nicht.
 - **Sicherung als JSON** herunterladen und wieder einspielen (Rubriken, Feeds, Artikel, Einstellungen). Zugangsdaten sind bewusst nicht enthalten und überleben eine Wiederherstellung. Das Einspielen ersetzt den restlichen Bestand und läuft in einer Transaktion — schlägt es fehl, bleibt die alte Datenbank unverändert.
 
 ### Darstellung & Betrieb
 
-- **Design: Hell, Dunkel oder System** — im Zahnrad-Menü wählbar; „System" folgt der Betriebssystem-Einstellung und wechselt auch im laufenden Betrieb mit. Der Sonne/Mond-Knopf bleibt als schneller Hell/Dunkel-Umschalter
+- **Einstellungen als Fenster** mit den Bereichen Darstellung, Lesen, Zugänge, Daten, Zugang und Tastatur; auf dem Handy als Vollbild
+- **Design: Hell, Dunkel oder System** — im Einstellungsfenster wählbar; „System" folgt der Betriebssystem-Einstellung und wechselt auch im laufenden Betrieb mit. Der Sonne/Mond-Knopf bleibt als schneller Hell/Dunkel-Umschalter
 - **Anzeige-Einstellungen**: Schriftgröße, Zeilendichte, Thumbnails in der Liste, Favicons wahlweise über den lokalen Cache (dann ohne Aufruf externer Dienste beim Anzeigen)
-- **Gleiche Meldung zusammenfassen**: In „Alle Artikel" wird dieselbe Nachricht aus mehreren Quellen zu einem Eintrag gebündelt, die weiteren Quellen stehen darunter und bleiben einzeln anklickbar. Abschaltbar im Zahnrad-Menü
-- **Zweisprachige Oberfläche** (Deutsch, Russisch)
+- **Gleiche Meldung zusammenfassen**: In „Alle Artikel" wird dieselbe Nachricht aus mehreren Quellen zu einem Eintrag gebündelt, die weiteren Quellen stehen darunter und bleiben einzeln anklickbar. Abschaltbar im Einstellungsfenster
+- **Dreisprachige Oberfläche** (Deutsch, Englisch, Russisch) — beim ersten Besuch wird die Browsersprache übernommen, danach gilt die Wahl im Einstellungsfenster. Auch die Meldungen des Servers sind übersetzt
 - **Installierbar als PWA**, App-Grundgerüst und zuletzt geladene Daten sind offline verfügbar
 - **Automatische Aktualisierung** im Hintergrund (Standard: alle 30 Minuten) plus manueller Refresh, einzeln oder für alle Feeds
 - Fehleranzeige pro Feed (⚠ mit Details). Aufbewahrt werden 30 gelesene Artikel pro Feed; ungelesene und gespeicherte bleiben erhalten (Notbremse bei 300 pro Feed)
@@ -84,7 +85,7 @@ Die Datenbank liegt im Ordner `./data` und überlebt Container-Neustarts und -Up
 
 ## Konfiguration (Umgebungsvariablen)
 
-Telegram, der KI-Schlüssel und der Briefing-Zeitplan lassen sich auch **im Zahnrad-Menü unter „Zugänge einrichten"** setzen — sichtbar, sobald man angemeldet ist. Die Umgebungsvariablen legen diese Werte beim allerersten Start an; danach gilt, was im Menü steht (dasselbe Verhalten wie bei `FEEDBOARD_PASSWORD`). Wer ganz ohne Umgebungsvariablen startet, richtet alles im Menü ein.
+Telegram, der KI-Schlüssel und der Briefing-Zeitplan lassen sich auch **im Einstellungsfenster unter „Zugänge"** setzen — sichtbar, sobald man angemeldet ist. Die Umgebungsvariablen legen diese Werte beim allerersten Start an; danach gilt, was im Einstellungsfenster steht (dasselbe Verhalten wie bei `FEEDBOARD_PASSWORD`). Wer ganz ohne Umgebungsvariablen startet, richtet alles im Einstellungsfenster ein.
 
 | Variable                 | Standard              | Bedeutung                                                                                                            |
 | ------------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -93,13 +94,13 @@ Telegram, der KI-Schlüssel und der Briefing-Zeitplan lassen sich auch **im Zahn
 | `DB_PATH`                | `./data/feedboard.db` | Pfad zur SQLite-Datei                                                                                                  |
 | `DEV_ASSETS`             | –                     | `1` = Asset-Version bei jedem Seitenaufruf neu aus den Dateizeiten bestimmen (für die Live-Entwicklung des Frontends)   |
 | `FEEDBOARD_PASSWORD`     | –                     | Legt beim allerersten Start das Passwort an. Danach gilt, was im Menü gesetzt wurde. Leer = bearbeiten bleibt offen.     |
-| `ANTHROPIC_API_KEY`      | –                     | Startwert für den KI-Schlüssel (Kurzfassung, Übersetzung, Briefing). Danach gilt das Menü                               |
-| `ANTHROPIC_MODEL`        | `claude-opus-5`       | Startwert für das Claude-Modell. Danach gilt das Menü                                                                  |
-| `TELEGRAM_BOT_TOKEN`     | –                     | Startwert für den Bot-Token (zusammen mit `TELEGRAM_CHAT_ID`). Danach gilt das Menü                                    |
-| `TELEGRAM_CHAT_ID`       | –                     | Startwert für den Ziel-Chat. Danach gilt das Menü                                                                       |
-| `BRIEFING_CRON`          | –                     | Startwert für den Briefing-Zeitplan, z. B. `0 7 * * *`. Leer = aus. Braucht KI-Zugang und Telegram. Danach gilt das Menü |
-| `BRIEFING_LANG`          | `de`                  | Startwert für die Sprache des Briefings (`de`, `en`, `ru`). Danach gilt das Menü                                        |
-| `BRIEFING_HOURS`         | `24`                  | Startwert für den Rückblick des Briefings in Stunden (1–168). Danach gilt das Menü                                      |
+| `ANTHROPIC_API_KEY`      | –                     | Startwert für den KI-Schlüssel (Kurzfassung, Übersetzung, Briefing). Danach gilt das Einstellungsfenster                               |
+| `ANTHROPIC_MODEL`        | `claude-opus-5`       | Startwert für das Claude-Modell. Danach gilt das Einstellungsfenster                                                                  |
+| `TELEGRAM_BOT_TOKEN`     | –                     | Startwert für den Bot-Token (zusammen mit `TELEGRAM_CHAT_ID`). Danach gilt das Einstellungsfenster                                    |
+| `TELEGRAM_CHAT_ID`       | –                     | Startwert für den Ziel-Chat. Danach gilt das Einstellungsfenster                                                                       |
+| `BRIEFING_CRON`          | –                     | Startwert für den Briefing-Zeitplan, z. B. `0 7 * * *`. Leer = aus. Braucht KI-Zugang und Telegram. Danach gilt das Einstellungsfenster |
+| `BRIEFING_LANG`          | `de`                  | Startwert für die Sprache des Briefings (`de`, `en`, `ru`). Danach gilt das Einstellungsfenster                                        |
+| `BRIEFING_HOURS`         | `24`                  | Startwert für den Rückblick des Briefings in Stunden (1–168). Danach gilt das Einstellungsfenster                                      |
 
 Für Docker liegen die optionalen Werte am besten in einer `.env` neben der `docker-compose.yml` — sie werden dort schon durchgereicht.
 

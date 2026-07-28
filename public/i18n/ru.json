@@ -227,5 +227,16 @@
   "section_keyboard": "Клавиатура",
   "lang_label": "Язык",
   "close": "Закрыть",
-  "integrations_locked": "Для настройки войдите."
+  "integrations_locked": "Для настройки войдите.",
+  "briefing_time_label": "Сводка в",
+  "briefing_days_label": "В эти дни",
+  "day_mon": "Пн",
+  "day_tue": "Вт",
+  "day_wed": "Ср",
+  "day_thu": "Чт",
+  "day_fri": "Пт",
+  "day_sat": "Сб",
+  "day_sun": "Вс",
+  "briefing_off_hint": "Без выбранных дней сводка не отправляется.",
+  "briefing_every_day": "ежедневно"
 }
