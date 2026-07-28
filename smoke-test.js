@@ -8,6 +8,17 @@ const { JSDOM } = require('jsdom');
 const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
 const appJs = fs.readFileSync(path.join(__dirname, 'public', 'app.js'), 'utf8');
 
+// Die Wörterbücher liegen seit dem i18n-Umbau als eigene Dateien und werden
+// zur Laufzeit geholt — der Test muss sie also ausliefern können.
+function i18nAntwort(url) {
+  const treffer = String(url).match(/i18n\/(\w+)\.json/);
+  if (!treffer) return null;
+  const datei = path.join(__dirname, 'public', 'i18n', `${treffer[1]}.json`);
+  if (!fs.existsSync(datei)) return { ok: false, status: 404, json: async () => ({}) };
+  const inhalt = JSON.parse(fs.readFileSync(datei, 'utf8'));
+  return { ok: true, status: 200, json: async () => inhalt };
+}
+
 const boardData = {
   categories: [
     {
@@ -70,6 +81,8 @@ async function run() {
     removeEventListener() {},
   });
   window.fetch = async (url) => {
+    const sprache = i18nAntwort(url);
+    if (sprache) return sprache;
     if (String(url).includes('/api/board')) {
       return { ok: true, status: 200, json: async () => structuredClone(boardData) };
     }
@@ -79,11 +92,15 @@ async function run() {
   const errors = [];
   window.addEventListener('error', (e) => errors.push(e.error || e.message));
 
+  // Sprache festnageln: seit der Browsererkennung würde jsdom sonst Englisch
+  // wählen und alle Textprüfungen unten hingen an der Laune der Umgebung.
+  window.localStorage.setItem('feedboard-lang', 'de');
+
   // app.js im Fenster-Kontext ausführen
   window.eval(appJs);
 
-  // loadBoard ist async — kurz warten
-  await new Promise((r) => setTimeout(r, 50));
+  // Sprachdatei und loadBoard sind async — kurz warten
+  await new Promise((r) => setTimeout(r, 150));
 
   const doc = window.document;
   const results = [];
@@ -158,6 +175,8 @@ async function run() {
 
   // Nicht angemeldet: lesen geht, bearbeiten fragt nach dem Passwort
   window.fetch = async (url) => {
+    const sprache = i18nAntwort(url);
+    if (sprache) return sprache;
     if (String(url).includes('/api/board')) {
       return { ok: true, status: 200, json: async () => ({ ...structuredClone(boardData), authenticated: false }) };
     }
@@ -179,7 +198,8 @@ async function run() {
   doc.querySelector('[data-action="sheet-close"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 
   // Empty-State testen
-  window.fetch = async () => ({ ok: true, status: 200, json: async () => ({ categories: [], refreshing: false, fetch_interval_minutes: 30 }) });
+  window.fetch = async (url) => i18nAntwort(url)
+    || ({ ok: true, status: 200, json: async () => ({ categories: [], refreshing: false, fetch_interval_minutes: 30 }) });
   doc.getElementById('btn-refresh').dispatchEvent(new window.Event('click', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 50));
   check('Empty-State gerendert', !!doc.querySelector('.board-empty'));
@@ -217,6 +237,30 @@ async function run() {
 
   clickEl(themeSegBtn('system'));
   check('Theme: zurück auf „System" folgt wieder dem System', doc.documentElement.dataset.theme === 'dark' && window.localStorage.getItem('feedboard-theme') === 'system');
+
+  // ---- Sprachen: drei Wörterbücher, aus Dateien geladen ----
+  const langLabel = () => doc.querySelector('#btn-lang .lang-label')?.textContent;
+
+  check('Sprache: Start auf Deutsch', doc.documentElement.lang === 'de' && langLabel() === 'DE');
+  const deutscherText = doc.querySelector('[data-i18n="data_label"]').textContent;
+
+  doc.getElementById('btn-lang').dispatchEvent(new window.Event('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 80));
+  check('Sprache: Knopf schaltet auf Englisch', langLabel() === 'EN');
+  const englischerText = doc.querySelector('[data-i18n="data_label"]').textContent;
+  check('Sprache: Beschriftung wechselt wirklich', englischerText === 'Data' && englischerText !== deutscherText);
+
+  doc.getElementById('btn-lang').dispatchEvent(new window.Event('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 80));
+  check('Sprache: weiter auf Russisch', langLabel() === 'RU'
+    && doc.querySelector('[data-i18n="data_label"]').textContent === 'Данные');
+
+  doc.getElementById('btn-lang').dispatchEvent(new window.Event('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 80));
+  check('Sprache: Runde schließt sich zurück auf Deutsch', langLabel() === 'DE'
+    && doc.querySelector('[data-i18n="data_label"]').textContent === deutscherText);
+  check('Sprache: Wahl wird gespeichert', window.localStorage.getItem('feedboard-lang') === 'de');
+  check('Sprache: lang-Attribut gesetzt', doc.documentElement.lang === 'de');
 
   console.log(results.join('\n'));
   console.log(errors.length ? `\nJS-Fehler: ${errors.map(String).join(' | ')}` : '\nAlle Smoke-Tests abgeschlossen.');

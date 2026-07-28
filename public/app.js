@@ -5,340 +5,12 @@
   const ARTICLES_VISIBLE = 8;
   const AUTO_RELOAD_MS = 60 * 1000;
 
-  // -------------------------------------------------------------------------
-  // Übersetzungen (Komplette UI-Sprache de/ru)
-  // -------------------------------------------------------------------------
-
-  const translations = {
-    de: {
-      status_label: 'Stand:',
-      refresh_title: 'Alle Feeds jetzt aktualisieren',
-      refresh_label: 'Aktualisieren',
-      edit_title: 'Rubriken und Feeds verwalten',
-      edit_label: 'Bearbeiten',
-      theme_title: 'Design wechseln (hell/dunkel)',
-      settings_title: 'Einstellungen',
-      lang_switch_title: 'Sprache wechseln',
-      saved_title: 'Gespeicherte Artikel',
-      saved_empty: 'Noch keine Artikel gespeichert.',
-      theme_label: 'Design',
-      theme_light: 'Hell',
-      theme_dark: 'Dunkel',
-      theme_system: 'System',
-      font_size_label: 'Schriftgröße',
-      density_label: 'Dichte',
-      density_comfortable: 'Komfortabel',
-      density_compact: 'Kompakt',
-      thumbnails_label: 'Thumbnails in der Liste',
-      dedupe_label: 'Gleiche Meldung zusammenfassen',
-      also_at: 'Auch bei:',
-      integrations_label: 'Zugänge einrichten',
-      tg_token_label: 'Telegram Bot-Token',
-      tg_chat_label: 'Telegram Chat-ID',
-      ai_key_label: 'KI-Schlüssel',
-      ai_model_label: 'KI-Modell',
-      briefing_cron_label: 'Briefing-Zeitplan (cron)',
-      briefing_hours_label: 'Rückblick (Std.)',
-      briefing_lang_label: 'Sprache',
-      tg_test: 'Testnachricht',
-      clear: 'entfernen',
-      integrations_saved: 'Gespeichert.',
-      integrations_sent: 'Testnachricht verschickt.',
-      integrations_keep: 'gesetzt ({hint}) — leer lassen heißt unverändert',
-      integrations_unset: 'nicht gesetzt',
-      schedule_active: 'Briefing aktiv: {cron}',
-      schedule_off: 'Briefing aus (kein Zeitplan)',
-      schedule_invalid: 'Zeitplan ungültig — Briefing bleibt aus',
-      schedule_missing: 'Briefing wartet auf: {what}',
-      favicon_cache_label: 'Favicons lokal cachen',
-      mute_label: 'Ausblenden (ein Wort pro Zeile)',
-      mute_placeholder: 'z. B. Werbung',
-      star_add_title: 'Artikel speichern',
-      star_remove_title: 'Aus Gespeicherten entfernen',
-      toast_mute_saved: 'Filter gespeichert.',
-      new_category_placeholder: 'Neue Rubrik …',
-      anchor_placeholder: 'anker',
-      create_category: 'Rubrik anlegen',
-      name_label: 'Name',
-      anchor_label: 'Anker',
-      logo_label: 'Logo',
-      save: 'Speichern',
-      search_placeholder: 'Suchen …',
-      unread_only_title: 'Nur Ungelesene anzeigen',
-      mark_read_title: 'Als gelesen markieren',
-      mark_unread_title: 'Als ungelesen markieren',
-      mark_all_read_title: 'Alle als gelesen markieren',
-      unread_badge_title: '{n} ungelesen',
-      open_article: 'Öffnen',
-      search_no_results: 'Nichts gefunden.',
-      search_results_count: '{n} Treffer',
-      search_hint: 'Tippe zum Suchen in allen Artikeln.',
-      edit_hint_categories: 'Bearbeitungsmodus — Rubriken anlegen, umbenennen, sortieren und löschen.',
-      edit_hint_feeds: 'Bearbeitungsmodus — Feeds hinzufügen, umbenennen, sortieren und löschen.',
-      back_all: 'Alle Rubriken',
-      no_feeds: 'Noch keine Feeds in dieser Rubrik.',
-      no_articles: 'Noch keine Artikel geladen.',
-      feed_add_url_placeholder: 'Website-URL, RSS oder Telegram (t.me/kanal, @kanal)',
-      feed_add_name_placeholder: 'Name (optional, wird sonst erkannt)',
-      feed_add_submit: 'Feed hinzufügen',
-      feed_add_hint: 'Website-Adresse (RSS wird automatisch gesucht) oder ein Telegram-Kanal: t.me/kanal bzw. @kanal.',
-      searching_feed: 'Suche Feed …',
-      show_more: 'weitere anzeigen',
-      show_less: 'weniger anzeigen',
-      ok: 'OK',
-      cancel: 'Abbr.',
-      board_empty_title: 'Noch ganz leer hier.',
-      board_empty_text: 'Leg deine erste Rubrik an und füge ihr RSS-Feeds hinzu.',
-      board_empty_btn: 'Erste Rubrik anlegen',
-      category_move_prev: 'Nach vorn',
-      category_move_next: 'Nach hinten',
-      rename_category_title: 'Rubrik bearbeiten',
-      delete_category_title: 'Rubrik löschen',
-      logo_upload_title: 'Logo hochladen',
-      logo_remove_title: 'Logo entfernen',
-      feed_move_up: 'Nach oben',
-      feed_move_down: 'Nach unten',
-      rename_feed_title: 'Feed umbenennen',
-      delete_feed_title: 'Feed löschen',
-      feed_error_prefix: 'Letzter Abruf fehlgeschlagen:',
-      refreshed: 'Aktualisiert',
-      ok_suffix: 'ok',
-      failed_suffix: 'fehlgeschlagen',
-      toast_refreshing_running: 'Eine Aktualisierung läuft bereits.',
-      toast_category_added: 'Rubrik „{name}“ angelegt.',
-      toast_feed_added: 'Feed „{name}“ hinzugefügt.',
-      toast_category_deleted: 'Rubrik gelöscht.',
-      toast_feed_deleted: 'Feed gelöscht.',
-      toast_board_load_failed: 'Board konnte nicht geladen werden: {msg}',
-      toast_refresh_failed: 'Aktualisierung fehlgeschlagen: {msg}',
-      toast_logo_saved: 'Logo gespeichert.',
-      toast_logo_removed: 'Logo entfernt.',
-      toast_logo_failed: 'Logo konnte nicht gespeichert werden: {msg}',
-      confirm_delete_category: 'Rubrik „{name}“{suffix} wirklich löschen?',
-      confirm_delete_category_suffix: ' samt {feeds}',
-      confirm_delete_feed: 'Feed „{name}“ wirklich löschen?',
-      time_now: 'jetzt',
-      time_min: '{n} Min.',
-      time_hours: '{n} Std.',
-      time_yesterday: 'gestern',
-      time_days: '{n} Tg.',
-      river_title: 'Alle Artikel (neueste zuerst)',
-      river_empty: 'Keine Artikel vorhanden.',
-      river_count: '{n} Artikel',
-      feed_pause_title: 'Feed pausieren',
-      feed_resume_title: 'Feed fortsetzen',
-      feed_paused_badge: 'pausiert',
-      feed_auto_paused: 'Nach zu vielen Fehlversuchen automatisch pausiert.',
-      action_fulltext: 'Volltext',
-      action_ai_summary: 'Kurzfassung',
-      action_ai_translate: 'Übersetzen',
-      action_share: 'Teilen',
-      action_loading: 'lädt …',
-      toast_shared: 'An Telegram geschickt.',
-      ai_label: 'KI',
-      ai_briefing: 'Tages-Briefing',
-      ai_briefing_title: 'Briefing der letzten 24 Stunden',
-      ai_briefing_empty: 'Keine ungelesenen Artikel für ein Briefing.',
-      data_label: 'Daten',
-      account_label: 'Zugang',
-      opml_export: 'OPML exportieren',
-      opml_import: 'OPML einlesen',
-      backup_export: 'Sicherung speichern',
-      backup_import: 'Sicherung einspielen',
-      logout: 'Abmelden',
-      login: 'Anmelden',
-      login_title: 'Anmelden',
-      login_hint: 'Rubriken und Feeds bearbeiten ist mit Passwort geschützt.',
-      password_placeholder: 'Passwort',
-      password_set: 'Passwort setzen',
-      password_change: 'Passwort ändern',
-      password_current: 'Aktuelles Passwort',
-      password_new: 'Neues Passwort',
-      password_repeat: 'Neues Passwort wiederholen',
-      password_hint: 'Mit gesetztem Passwort bleibt Lesen für alle frei; Bearbeiten verlangt eine Anmeldung.',
-      password_mismatch: 'Die beiden Passwörter stimmen nicht überein.',
-      toast_password_saved: 'Passwort gespeichert.',
-      toast_logged_in: 'Angemeldet.',
-      toast_logged_out: 'Abgemeldet.',
-      toast_opml_imported: '{feeds} Feeds in {categories} neuen Rubriken übernommen ({skipped} übersprungen).',
-      confirm_restore: 'Die Sicherung ersetzt alle vorhandenen Rubriken, Feeds und Artikel. Fortfahren?',
-      toast_restored: 'Wiederhergestellt: {categories} Rubriken, {feeds} Feeds, {articles} Artikel.',
-      shortcuts_label: 'Tastatur',
-      shortcut_move: 'Artikel wechseln',
-      shortcut_open: 'Artikel öffnen',
-      shortcut_read: 'gelesen',
-      shortcut_star: 'speichern',
-      shortcut_refresh: 'aktualisieren',
-      shortcut_unread: 'nur Ungelesene',
-      shortcut_river: 'alle Artikel',
-      shortcut_search: 'suchen',
-      shortcut_back: 'zurück',
-    },
-    ru: {
-      status_label: 'Обновлено:',
-      refresh_title: 'Обновить все ленты',
-      refresh_label: 'Обновить',
-      edit_title: 'Управление рубриками и лентами',
-      edit_label: 'Править',
-      theme_title: 'Сменить тему (светлая/тёмная)',
-      settings_title: 'Настройки',
-      lang_switch_title: 'Сменить язык',
-      saved_title: 'Сохранённые статьи',
-      saved_empty: 'Пока нет сохранённых статей.',
-      theme_label: 'Тема',
-      theme_light: 'Светлая',
-      theme_dark: 'Тёмная',
-      theme_system: 'Система',
-      font_size_label: 'Размер шрифта',
-      density_label: 'Плотность',
-      density_comfortable: 'Свободно',
-      density_compact: 'Компактно',
-      thumbnails_label: 'Миниатюры в списке',
-      dedupe_label: 'Объединять одинаковые новости',
-      also_at: 'Также:',
-      integrations_label: 'Настройка подключений',
-      tg_token_label: 'Токен Telegram-бота',
-      tg_chat_label: 'ID чата Telegram',
-      ai_key_label: 'Ключ ИИ',
-      ai_model_label: 'Модель ИИ',
-      briefing_cron_label: 'Расписание сводки (cron)',
-      briefing_hours_label: 'Период (ч)',
-      briefing_lang_label: 'Язык',
-      tg_test: 'Тестовое сообщение',
-      clear: 'удалить',
-      integrations_saved: 'Сохранено.',
-      integrations_sent: 'Тестовое сообщение отправлено.',
-      integrations_keep: 'задано ({hint}) — пустое поле значит без изменений',
-      integrations_unset: 'не задано',
-      schedule_active: 'Сводка включена: {cron}',
-      schedule_off: 'Сводка выключена (нет расписания)',
-      schedule_invalid: 'Неверное расписание — сводка не работает',
-      schedule_missing: 'Сводка ждёт: {what}',
-      favicon_cache_label: 'Кэшировать фавиконы локально',
-      mute_label: 'Скрывать (по слову в строке)',
-      mute_placeholder: 'напр. реклама',
-      star_add_title: 'Сохранить статью',
-      star_remove_title: 'Убрать из сохранённых',
-      toast_mute_saved: 'Фильтр сохранён.',
-      new_category_placeholder: 'Новая рубрика …',
-      anchor_placeholder: 'anker',
-      create_category: 'Создать рубрику',
-      name_label: 'Название',
-      anchor_label: 'Якорь',
-      logo_label: 'Логотип',
-      save: 'Сохранить',
-      search_placeholder: 'Поиск …',
-      unread_only_title: 'Только непрочитанные',
-      mark_read_title: 'Отметить прочитанным',
-      mark_unread_title: 'Отметить непрочитанным',
-      mark_all_read_title: 'Отметить всё прочитанным',
-      unread_badge_title: 'непрочитанных: {n}',
-      open_article: 'Открыть',
-      search_no_results: 'Ничего не найдено.',
-      search_results_count: 'Найдено: {n}',
-      search_hint: 'Введите запрос для поиска по статьям.',
-      edit_hint_categories: 'Режим редактирования — рубрики: создание, переименование, сортировка, удаление.',
-      edit_hint_feeds: 'Режим редактирования — ленты: добавление, переименование, сортировка, удаление.',
-      back_all: 'Все рубрики',
-      no_feeds: 'В этой рубрике пока нет лент.',
-      no_articles: 'Статьи ещё не загружены.',
-      feed_add_url_placeholder: 'Сайт, RSS или Telegram (t.me/канал, @канал)',
-      feed_add_name_placeholder: 'Название (необязательно)',
-      feed_add_submit: 'Добавить ленту',
-      feed_add_hint: 'Адрес сайта (RSS найдётся автоматически) или Telegram-канал: t.me/канал или @канал.',
-      searching_feed: 'Поиск ленты …',
-      show_more: 'показать ещё',
-      show_less: 'свернуть',
-      ok: 'OK',
-      cancel: 'Отм.',
-      board_empty_title: 'Здесь пока пусто.',
-      board_empty_text: 'Создайте первую рубрику и добавьте в неё RSS-ленты.',
-      board_empty_btn: 'Создать первую рубрику',
-      category_move_prev: 'Вперёд',
-      category_move_next: 'Назад',
-      rename_category_title: 'Редактировать рубрику',
-      delete_category_title: 'Удалить рубрику',
-      logo_upload_title: 'Загрузить логотип',
-      logo_remove_title: 'Удалить логотип',
-      feed_move_up: 'Вверх',
-      feed_move_down: 'Вниз',
-      rename_feed_title: 'Переименовать ленту',
-      delete_feed_title: 'Удалить ленту',
-      feed_error_prefix: 'Последний запрос не удался:',
-      refreshed: 'Обновлено',
-      ok_suffix: 'ок',
-      failed_suffix: 'с ошибкой',
-      toast_refreshing_running: 'Обновление уже выполняется.',
-      toast_category_added: 'Рубрика «{name}» создана.',
-      toast_feed_added: 'Лента «{name}» добавлена.',
-      toast_category_deleted: 'Рубрика удалена.',
-      toast_feed_deleted: 'Лента удалена.',
-      toast_board_load_failed: 'Не удалось загрузить: {msg}',
-      toast_refresh_failed: 'Ошибка обновления: {msg}',
-      toast_logo_saved: 'Логотип сохранён.',
-      toast_logo_removed: 'Логотип удалён.',
-      toast_logo_failed: 'Не удалось сохранить логотип: {msg}',
-      confirm_delete_category: 'Удалить рубрику «{name}»{suffix}?',
-      confirm_delete_category_suffix: ' вместе с {feeds}',
-      confirm_delete_feed: 'Удалить ленту «{name}»?',
-      time_now: 'сейчас',
-      time_min: '{n} мин.',
-      time_hours: '{n} ч.',
-      time_yesterday: 'вчера',
-      time_days: '{n} дн.',
-      river_title: 'Все статьи (сначала новые)',
-      river_empty: 'Статей нет.',
-      river_count: 'Статей: {n}',
-      feed_pause_title: 'Приостановить ленту',
-      feed_resume_title: 'Возобновить ленту',
-      feed_paused_badge: 'пауза',
-      feed_auto_paused: 'Приостановлено автоматически после многих ошибок.',
-      action_fulltext: 'Полный текст',
-      action_ai_summary: 'Кратко',
-      action_ai_translate: 'Перевести',
-      action_share: 'Поделиться',
-      action_loading: 'загрузка …',
-      toast_shared: 'Отправлено в Telegram.',
-      ai_label: 'ИИ',
-      ai_briefing: 'Сводка дня',
-      ai_briefing_title: 'Сводка за последние 24 часа',
-      ai_briefing_empty: 'Нет непрочитанных статей для сводки.',
-      data_label: 'Данные',
-      account_label: 'Доступ',
-      opml_export: 'Экспорт OPML',
-      opml_import: 'Импорт OPML',
-      backup_export: 'Сохранить копию',
-      backup_import: 'Восстановить из копии',
-      logout: 'Выйти',
-      login: 'Войти',
-      login_title: 'Вход',
-      login_hint: 'Редактирование рубрик и лент защищено паролем.',
-      password_placeholder: 'Пароль',
-      password_set: 'Задать пароль',
-      password_change: 'Сменить пароль',
-      password_current: 'Текущий пароль',
-      password_new: 'Новый пароль',
-      password_repeat: 'Повторите новый пароль',
-      password_hint: 'С паролем чтение остаётся открытым для всех, а редактирование требует входа.',
-      password_mismatch: 'Пароли не совпадают.',
-      toast_password_saved: 'Пароль сохранён.',
-      toast_logged_in: 'Вы вошли.',
-      toast_logged_out: 'Вы вышли.',
-      toast_opml_imported: 'Добавлено лент: {feeds}, новых рубрик: {categories}, пропущено: {skipped}.',
-      confirm_restore: 'Копия заменит все рубрики, ленты и статьи. Продолжить?',
-      toast_restored: 'Восстановлено: рубрик {categories}, лент {feeds}, статей {articles}.',
-      shortcuts_label: 'Клавиши',
-      shortcut_move: 'следующая/предыдущая',
-      shortcut_open: 'открыть',
-      shortcut_read: 'прочитано',
-      shortcut_star: 'сохранить',
-      shortcut_refresh: 'обновить',
-      shortcut_unread: 'только непрочитанные',
-      shortcut_river: 'все статьи',
-      shortcut_search: 'поиск',
-      shortcut_back: 'назад',
-    },
-  };
+  // Version aus der eigenen Skript-Adresse (app.js?v=…). Wird an die
+  // Sprachdateien weitergereicht, damit sie derselben Cache-Regel folgen.
+  const ASSET_VERSION = (() => {
+    const eigenes = document.currentScript?.src || '';
+    try { return new URL(eigenes, location.href).searchParams.get('v') || ''; } catch { return ''; }
+  })();
 
   const state = {
     board: null,
@@ -435,9 +107,29 @@
   // i18n-Hilfsfunktionen
   // -------------------------------------------------------------------------
 
+  // Die Wörterbücher liegen als JSON unter /i18n/<sprache>.json und werden beim
+  // Start geladen. Deutsch dient als Rückfallebene: fehlt ein Schlüssel in
+  // einer Sprache, erscheint der deutsche Text statt eines rohen Schlüssels.
+  const LANGS = ['de', 'en', 'ru'];
+  const FALLBACK_LANG = 'de';
+  const LOCALES = { de: 'de-DE', en: 'en-GB', ru: 'ru-RU' };
+
+  const dictionaries = { };
+
+  async function loadDictionary(lang) {
+    if (dictionaries[lang]) return dictionaries[lang];
+    // Dieselbe Version wie app.js, damit der Service-Worker nach einem Update
+    // nicht die alten Texte weiterreicht.
+    const antwort = await fetch(`i18n/${lang}.json${ASSET_VERSION ? `?v=${ASSET_VERSION}` : ''}`);
+    if (!antwort.ok) throw new Error(`Sprachdatei ${lang} nicht ladbar`);
+    dictionaries[lang] = await antwort.json();
+    return dictionaries[lang];
+  }
+
   function t(key, params) {
-    const dict = translations[state.lang] || translations.de;
-    let str = dict[key] ?? translations.de[key] ?? key;
+    const dict = dictionaries[state.lang] || dictionaries[FALLBACK_LANG] || {};
+    const fallback = dictionaries[FALLBACK_LANG] || {};
+    let str = dict[key] ?? fallback[key] ?? key;
     if (params) {
       for (const [k, v] of Object.entries(params)) str = str.replaceAll(`{${k}}`, v);
     }
@@ -445,7 +137,7 @@
   }
 
   function locale() {
-    return state.lang === 'ru' ? 'ru-RU' : 'de-DE';
+    return LOCALES[state.lang] || LOCALES[FALLBACK_LANG];
   }
 
   const TRANSLIT = {
@@ -467,17 +159,13 @@
     return out;
   }
 
+  // Pluralformen kommen aus Intl statt aus handgerechneten Sonderfällen —
+  // Russisch braucht drei Formen, Deutsch und Englisch zwei.
   function feedCountLabel(n) {
-    if (state.lang === 'ru') {
-      const mod10 = n % 10;
-      const mod100 = n % 100;
-      let word;
-      if (mod10 === 1 && mod100 !== 11) word = 'фид';
-      else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) word = 'фида';
-      else word = 'фидов';
-      return `${n} ${word}`;
-    }
-    return `${n} ${n === 1 ? 'Feed' : 'Feeds'}`;
+    const dict = dictionaries[state.lang] || {};
+    const regel = new Intl.PluralRules(locale()).select(n);
+    const schluessel = `feed_count_${regel}`;
+    return dict[schluessel] !== undefined ? t(schluessel, { n }) : t('feed_count_other', { n });
   }
 
   function applyStaticI18n() {
@@ -491,15 +179,35 @@
     if (label) label.textContent = state.lang.toUpperCase();
   }
 
-  function setLang(lang) {
-    state.lang = lang === 'ru' ? 'ru' : 'de';
-    localStorage.setItem('feedboard-lang', state.lang);
-    document.documentElement.lang = state.lang;
+  async function setLang(lang, { speichern = true } = {}) {
+    const ziel = LANGS.includes(lang) ? lang : FALLBACK_LANG;
+    try {
+      await loadDictionary(ziel);
+    } catch {
+      // Sprachdatei nicht erreichbar (z. B. offline und nie geladen): bei der
+      // bisherigen Sprache bleiben statt die Oberfläche mit Schlüsseln zu füllen.
+      return;
+    }
+    state.lang = ziel;
+    if (speichern) localStorage.setItem('feedboard-lang', ziel);
+    document.documentElement.lang = ziel;
     applyStaticI18n();
     updateLangButtons();
     renderShortcutList();
     updateClock();
     render();
+  }
+
+  // Beim allerersten Besuch die Browsersprache übernehmen, sofern wir sie
+  // sprechen. Sobald einmal von Hand gewählt wurde, gilt nur noch das.
+  function ermittelteStartsprache() {
+    const gespeichert = localStorage.getItem('feedboard-lang');
+    if (LANGS.includes(gespeichert)) return gespeichert;
+    for (const eintrag of navigator.languages || [navigator.language || '']) {
+      const kurz = String(eintrag).slice(0, 2).toLowerCase();
+      if (LANGS.includes(kurz)) return kurz;
+    }
+    return FALLBACK_LANG;
   }
 
   // -------------------------------------------------------------------------
@@ -2248,7 +1956,12 @@
     }
     setEditMode(!state.editMode);
   });
-  btnLang.addEventListener('click', () => setLang(state.lang === 'de' ? 'ru' : 'de'));
+  // Der runde Knopf reicht die Sprachen durch; die feste Auswahl steht im
+  // Einstellungsdialog.
+  btnLang.addEventListener('click', () => {
+    const weiter = LANGS[(LANGS.indexOf(state.lang) + 1) % LANGS.length];
+    setLang(weiter);
+  });
 
   // Einstellungs-Zahnrad: auf-/zuklappen
   function setSettingsOpen(open) {
@@ -2479,9 +2192,19 @@
   // Start & Auto-Reload
   // -------------------------------------------------------------------------
 
-  const savedLang = localStorage.getItem('feedboard-lang');
-  state.lang = savedLang === 'ru' ? 'ru' : 'de';
+  // Die Wörterbücher kommen jetzt über das Netz, der Start wartet darauf.
+  // Ohne sie stünden überall rohe Schlüssel — lieber einen Wimpernschlag später
+  // rendern als eine Oberfläche voller "toast_feed_added".
+  async function start() {
+  state.lang = ermittelteStartsprache();
   document.documentElement.lang = state.lang;
+  try {
+    await loadDictionary(FALLBACK_LANG);
+    if (state.lang !== FALLBACK_LANG) await loadDictionary(state.lang);
+  } catch {
+    // Offline und nichts im Cache: die Oberfläche bleibt bei den im HTML
+    // hinterlegten deutschen Beschriftungen, der Rest läuft normal weiter.
+  }
   applyStaticI18n();
   updateLangButtons();
 
@@ -2518,6 +2241,9 @@
       loadBoard({ silent: true });
     }
   }, AUTO_RELOAD_MS);
+  }
+
+  start();
 
   // Service-Worker für PWA/Offline registrieren
   if ('serviceWorker' in navigator) {
