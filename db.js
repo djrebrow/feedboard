@@ -307,22 +307,38 @@ function upsertArticle({ feedId, guid, title, link, summary, imageUrl, published
   `).run(feedId, guid, title, link ?? null, summary ?? null, imageUrl ?? null, publishedAt ?? null);
 }
 
-function pruneArticles(feedId, keep = 30) {
-  // Gespeicherte Artikel (Stern) werden nie gelöscht
-  db.prepare(`
+// Aufräumen: gespeicherte (Stern) und ungelesene Artikel bleiben erhalten.
+// Ohne die Ungelesen-Ausnahme verschwinden bei schnellen Feeds Artikel,
+// bevor sie überhaupt jemand gesehen hat — wer zwei Tage nicht reinschaut,
+// verliert sie stillschweigend.
+//
+// Damit ein nie gelesener Feed die Datenbank nicht unbegrenzt füllt, greift
+// weit oberhalb des normalen Limits zusätzlich eine harte Obergrenze. Erst
+// dort weicht auch Ungelesenes — Gesterntes weiterhin nie.
+function pruneArticles(feedId, keep = 30, hardCap = keep * 10) {
+  const deleteBeyond = db.prepare(`
     DELETE FROM articles
     WHERE feed_id = ?
       AND starred_at IS NULL
+      AND (? = 0 OR read_at IS NOT NULL)
       AND id NOT IN (
         SELECT id FROM articles
         WHERE feed_id = ?
         ORDER BY COALESCE(published_at, fetched_at) DESC, id DESC
         LIMIT ?
       )
-  `).run(feedId, feedId, keep);
+  `);
+
+  deleteBeyond.run(feedId, 1, feedId, keep);          // nur Gelesenes
+  deleteBeyond.run(feedId, 0, feedId, hardCap);       // Notbremse, auch Ungelesenes
 }
 
-function getArticlesForBoard(limitPerFeed = 30) {
+// Ungelesene werden nicht mehr weggeräumt (siehe pruneArticles). Damit sie
+// auch sichtbar sind und der Ungelesen-Zähler nicht bei limitPerFeed
+// stehenbleibt, reicht das Board über das normale Limit hinaus — allerdings
+// nur für Ungelesenes und bis zu einer Obergrenze, damit die Antwort nicht
+// unbegrenzt wächst.
+function getArticlesForBoard(limitPerFeed = 30, unreadLimitPerFeed = 150) {
   return db.prepare(`
     SELECT id, feed_id, guid, title, link, summary, image_url, read_at, starred_at, published_at, fetched_at,
            content IS NOT NULL AS has_content, ai_summary, ai_translation
@@ -335,7 +351,8 @@ function getArticlesForBoard(limitPerFeed = 30) {
       FROM articles a
     )
     WHERE rn <= ?
-  `).all(limitPerFeed);
+       OR (read_at IS NULL AND rn <= ?)
+  `).all(limitPerFeed, unreadLimitPerFeed);
 }
 
 // Lese-Status ----------------------------------------------------------------
