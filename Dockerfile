@@ -6,7 +6,10 @@ ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-COPY server.js db.js feedFetcher.js telegram.js opml.js extract.js auth.js ai.js ./
+# Alle Backend-Dateien statt einer Aufzaehlung: die Liste hier wurde beim
+# Hinzufuegen von config.js und errors.js vergessen, wodurch der naechste
+# Neubau mit "Cannot find module './errors'" abbrach.
+COPY *.js ./
 COPY public ./public
 
 EXPOSE 8321
