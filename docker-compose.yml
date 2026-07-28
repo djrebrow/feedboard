@@ -21,4 +21,9 @@ services:
       - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+      # Geplantes Briefing, z. B. BRIEFING_CRON="0 7 * * *". Die Uhrzeit
+      # richtet sich nach TZ weiter oben.
+      - BRIEFING_CRON=${BRIEFING_CRON:-}
+      - BRIEFING_LANG=${BRIEFING_LANG:-}
+      - BRIEFING_HOURS=${BRIEFING_HOURS:-}
     restart: unless-stopped

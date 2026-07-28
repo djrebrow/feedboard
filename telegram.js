@@ -131,8 +131,64 @@ function canShare() {
   return !!(BOT_TOKEN && CHAT_ID);
 }
 
+const MAX_MESSAGE_CHARS = 4096;
+
 // Bewusst ohne parse_mode: dann muss nichts escapt werden und Telegram
 // verlinkt nackte URLs von selbst.
+async function sendOne(text, { preview = true } = {}) {
+  const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text: text.slice(0, MAX_MESSAGE_CHARS),
+      disable_web_page_preview: !preview,
+    }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data || data.ok !== true) {
+    const reason = data && data.description ? data.description : `HTTP ${response.status}`;
+    throw new Error(`Telegram hat die Nachricht abgelehnt: ${reason}`);
+  }
+  return { ok: true };
+}
+
+// Teilt zu lange Texte auf statt sie abzuschneiden. Getrennt wird möglichst
+// an Absätzen, sonst an Zeilen, sonst hart — ein Briefing ist regelmäßig
+// länger als die 4096 Zeichen, die Telegram je Nachricht zulässt.
+function splitMessage(text, limit = MAX_MESSAGE_CHARS) {
+  const rest = String(text || '').trim();
+  if (rest.length <= limit) return rest ? [rest] : [];
+
+  // Eine Trennstelle gilt als brauchbar, wenn sie nicht im ersten Drittel
+  // liegt — sonst entstehen Schnipsel. Ist keine brauchbar, wird hart getrennt.
+  const mindestens = limit * 0.3;
+  const stuecke = [];
+  let offen = rest;
+  while (offen.length > limit) {
+    const fenster = offen.slice(0, limit);
+    const schnitt = ['\n\n', '\n', ' ']
+      .map((trenner) => fenster.lastIndexOf(trenner))
+      .find((pos) => pos >= mindestens) ?? limit;
+    stuecke.push(offen.slice(0, schnitt).trim());
+    offen = offen.slice(schnitt).trim();
+  }
+  if (offen) stuecke.push(offen);
+  return stuecke;
+}
+
+async function sendText(text, { preview = false } = {}) {
+  if (!canShare()) {
+    throw new Error('Das Teilen ist nicht eingerichtet (TELEGRAM_BOT_TOKEN und TELEGRAM_CHAT_ID fehlen).');
+  }
+  const stuecke = splitMessage(text);
+  if (!stuecke.length) throw new Error('Es gibt nichts zu senden.');
+  for (const stueck of stuecke) await sendOne(stueck, { preview });
+  return { ok: true, parts: stuecke.length };
+}
+
 async function shareArticle({ title, link, summary, feedName }) {
   if (!canShare()) {
     throw new Error('Das Teilen ist nicht eingerichtet (TELEGRAM_BOT_TOKEN und TELEGRAM_CHAT_ID fehlen).');
@@ -146,23 +202,7 @@ async function shareArticle({ title, link, summary, feedName }) {
     link ? `\n${link}` : '',
   ].join('').trim();
 
-  const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: CHAT_ID,
-      text: text.slice(0, 4096),
-      disable_web_page_preview: false,
-    }),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-
-  const data = await response.json().catch(() => null);
-  if (!response.ok || !data || data.ok !== true) {
-    const reason = data && data.description ? data.description : `HTTP ${response.status}`;
-    throw new Error(`Telegram hat die Nachricht abgelehnt: ${reason}`);
-  }
-  return { ok: true };
+  return sendOne(text, { preview: true });
 }
 
 module.exports = {
@@ -172,4 +212,6 @@ module.exports = {
   fetchTelegramChannel,
   canShare,
   shareArticle,
+  sendText,
+  splitMessage,
 };

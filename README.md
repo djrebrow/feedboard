@@ -92,6 +92,9 @@ Die Datenbank liegt im Ordner `./data` und überlebt Container-Neustarts und -Up
 | `ANTHROPIC_MODEL`        | `claude-opus-5`       | Verwendetes Claude-Modell                                                                                              |
 | `TELEGRAM_BOT_TOKEN`     | –                     | Bot-Token zum Teilen von Artikeln (zusammen mit `TELEGRAM_CHAT_ID`)                                                    |
 | `TELEGRAM_CHAT_ID`       | –                     | Ziel-Chat für geteilte Artikel                                                                                          |
+| `BRIEFING_CRON`          | –                     | Zeitplan für das automatische Briefing, z. B. `0 7 * * *` für täglich 7 Uhr. Leer = aus. Braucht KI-Zugang und Telegram. |
+| `BRIEFING_LANG`          | `de`                  | Sprache des geplanten Briefings (`de`, `en`, `ru`)                                                                      |
+| `BRIEFING_HOURS`         | `24`                  | Wie weit das geplante Briefing zurückblickt, in Stunden (1–168)                                                          |
 
 Für Docker liegen die optionalen Werte am besten in einer `.env` neben der `docker-compose.yml` — sie werden dort schon durchgereicht.
 

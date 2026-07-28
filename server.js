@@ -17,6 +17,17 @@ const telegram = require('./telegram');
 const PORT = Number(process.env.PORT) || 8321;
 const FETCH_INTERVAL_MINUTES = clampInterval(process.env.FETCH_INTERVAL_MINUTES, 30);
 
+// Geplantes Briefing: leer = aus. Beispiel "0 7 * * *" für täglich 7 Uhr.
+const BRIEFING_CRON = String(process.env.BRIEFING_CRON || '').trim();
+const BRIEFING_LANG = ['de', 'en', 'ru'].includes(process.env.BRIEFING_LANG) ? process.env.BRIEFING_LANG : 'de';
+const BRIEFING_HOURS = clampHours(process.env.BRIEFING_HOURS, 24);
+
+function clampHours(value, fallback) {
+  const hours = Number(value);
+  if (!Number.isInteger(hours) || hours < 1 || hours > 168) return fallback;
+  return hours;
+}
+
 function clampInterval(value, fallback) {
   const minutes = Number(value);
   if (!Number.isInteger(minutes) || minutes < 5 || minutes > 59) return fallback;
@@ -385,28 +396,35 @@ app.post('/api/articles/:id/ai/translate', auth.protect, asyncHandler(async (req
   res.json({ translation, lang, cached: false });
 }));
 
-// Das Briefing wird pro Tag und Sprache einmal erzeugt und dann wiederverwendet
-app.post('/api/ai/briefing', auth.protect, asyncHandler(async (req, res) => {
-  requireAi();
-  const lang = ['de', 'ru', 'en'].includes(req.body?.lang) ? req.body.lang : 'de';
-  const hours = Number(req.body?.hours) || 24;
+// Das Briefing wird pro Tag und Sprache einmal erzeugt und dann wiederverwendet.
+// Als eigene Funktion, weil auch der Zeitplan (siehe unten) sie benutzt.
+async function createBriefing({ lang = 'de', hours = 24, force = false } = {}) {
   const key = `ai_briefing_${lang}`;
 
-  const cached = store.getSetting(key);
-  if (cached && req.body?.force !== true) {
-    try {
-      const parsed = JSON.parse(cached);
-      if (Date.now() - Date.parse(parsed.created_at) < 6 * 60 * 60 * 1000) {
-        return res.json({ ...parsed, cached: true });
-      }
-    } catch { /* kaputter Cache-Eintrag — einfach neu erzeugen */ }
+  if (!force) {
+    const cached = store.getSetting(key);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Date.now() - Date.parse(parsed.created_at) < 6 * 60 * 60 * 1000) {
+          return { ...parsed, cached: true };
+        }
+      } catch { /* kaputter Cache-Eintrag — einfach neu erzeugen */ }
+    }
   }
 
   const articles = store.getRecentUnread(hours, 120);
   const text = await ai.briefing(articles, lang);
   const payload = { text, lang, articles: articles.length, created_at: new Date().toISOString() };
   store.setSetting(key, JSON.stringify(payload));
-  res.json({ ...payload, cached: false });
+  return { ...payload, cached: false };
+}
+
+app.post('/api/ai/briefing', auth.protect, asyncHandler(async (req, res) => {
+  requireAi();
+  const lang = ['de', 'ru', 'en'].includes(req.body?.lang) ? req.body.lang : 'de';
+  const hours = Number(req.body?.hours) || 24;
+  res.json(await createBriefing({ lang, hours, force: req.body?.force === true }));
 }));
 
 // ---------------------------------------------------------------------------
@@ -524,3 +542,45 @@ cron.schedule(`*/${FETCH_INTERVAL_MINUTES} * * * *`, () => {
     if (!result.skipped) console.log(`Automatische Aktualisierung: ${result.ok} ok, ${result.failed} fehlgeschlagen.`);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Geplantes KI-Briefing per Telegram
+// ---------------------------------------------------------------------------
+// Braucht BRIEFING_CRON (z. B. "0 7 * * *" für täglich 7 Uhr) sowie einen
+// eingerichteten KI-Zugang und Telegram-Bot. Fehlt eines davon, passiert
+// nichts — die Funktion ist damit eine reine Zugabe für alle, die sie wollen.
+
+async function sendScheduledBriefing() {
+  const articles = store.getRecentUnread(BRIEFING_HOURS, 120);
+  if (!articles.length) {
+    console.log('Briefing übersprungen: keine ungelesenen Artikel im Zeitraum.');
+    return;
+  }
+
+  // force: der Zeitplan soll den Stand von jetzt zusammenfassen und nicht ein
+  // Briefing wiederholen, das jemand vor fünf Stunden im Browser erzeugt hat.
+  const briefing = await createBriefing({ lang: BRIEFING_LANG, hours: BRIEFING_HOURS, force: true });
+  const kopf = `📰 Feedboard-Briefing — ${articles.length} ungelesene Artikel der letzten ${BRIEFING_HOURS} Stunden`;
+  const { parts } = await telegram.sendText(`${kopf}\n\n${briefing.text}`);
+  console.log(`Briefing verschickt (${articles.length} Artikel, ${parts} Nachricht(en)).`);
+}
+
+if (BRIEFING_CRON) {
+  const fehlend = [
+    !ai.isEnabled() && 'ANTHROPIC_API_KEY',
+    !telegram.canShare() && 'TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID',
+  ].filter(Boolean);
+
+  if (!cron.validate(BRIEFING_CRON)) {
+    console.warn(`BRIEFING_CRON ist kein gültiger Zeitplan: "${BRIEFING_CRON}" — geplantes Briefing bleibt aus.`);
+  } else if (fehlend.length) {
+    console.warn(`Geplantes Briefing bleibt aus, es fehlt: ${fehlend.join(', ')}.`);
+  } else {
+    cron.schedule(BRIEFING_CRON, () => {
+      sendScheduledBriefing().catch((error) => {
+        console.error('Geplantes Briefing fehlgeschlagen:', error.message);
+      });
+    });
+    console.log(`Geplantes Briefing aktiv (${BRIEFING_CRON}, Sprache ${BRIEFING_LANG}, ${BRIEFING_HOURS} Stunden).`);
+  }
+}
