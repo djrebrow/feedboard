@@ -1377,21 +1377,49 @@ body.font-large .search-result .article-title { font-size: 16.5px; }
 .settings-clear:hover { color: var(--accent); }
 .settings-clear[hidden] { display: none; }
 
-.weekdays { display: flex; flex-wrap: wrap; gap: 4px; }
+/* Uhrzeit und Wochentage in einer Zeile. Die Tage teilen sich den Rest der
+   Breite, die Uhrzeit behält ihre eigene. */
+.briefing-when { display: flex; align-items: center; gap: 8px; }
+.briefing-time { flex: 0 0 auto; width: auto; }
+
+/* Sieben gleich breite Spalten: die Reihe bleibt auf jeder Breite eine Zeile,
+   auch auf dem Telefon neben der Uhrzeit. */
+.weekdays { flex: 1 1 auto; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
 
 .weekday {
+  position: relative;
   border: 1px solid var(--line-strong);
   background: var(--surface-raised);
   color: var(--muted);
   border-radius: 7px;
-  padding: 5px 8px;
+  padding: 4px 1px 8px;
   font: inherit;
   font-size: 12px;
   cursor: pointer;
-  min-width: 34px;
+  min-width: 0;
 }
 .weekday:hover { border-color: var(--accent); color: var(--accent); }
 .weekday.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+/* Zweites Merkmal neben der Farbe: ein Balken unter der Beschriftung. Er liegt
+   über dem Knopf statt daneben, kostet also keine Breite — davon ist neben der
+   Uhrzeit auf einem Telefon keine übrig. Ein Häkchen im Knopf überlappte dort
+   bei 30 px Breite die Beschriftung. */
+.weekday-mark {
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 13px;
+  height: 2px;
+  border-radius: 1px;
+  transform: translateX(-50%);
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+}
+.weekday.active .weekday-mark { opacity: 1; }
+
+.weekday-presets { display: flex; align-items: baseline; gap: 12px; margin-top: 7px; flex-wrap: wrap; }
 
 .settings-hint { font-size: 11px; color: var(--faint); font-weight: 400; }
 

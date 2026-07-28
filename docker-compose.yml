@@ -21,13 +21,29 @@ services:
       # „Zugänge einrichten" setzbar (nach der Anmeldung). Die Werte hier gelten
       # nur beim allerersten Start; danach hat das Menü Vorrang.
       - FEEDBOARD_PASSWORD=${FEEDBOARD_PASSWORD:-}
+      # KI: Anbieter und Modell. AI_PROVIDER ist eines von anthropic, openai,
+      # google, groq, openrouter, mistral, deepseek, custom. Der Schlüssel
+      # gehört jeweils zum Anbieter — es dürfen ruhig mehrere gesetzt sein.
+      - AI_PROVIDER=${AI_PROVIDER:-}
+      - AI_MODEL=${AI_MODEL:-}
+      # Nur für AI_PROVIDER=custom, z. B. http://host.docker.internal:11434/v1
+      - AI_BASE_URL=${AI_BASE_URL:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
-      # Geplantes Briefing, z. B. BRIEFING_CRON="0 7 * * *". Die Uhrzeit
-      # richtet sich nach TZ weiter oben.
-      - BRIEFING_CRON=${BRIEFING_CRON:-}
+      # Geplantes Briefing: Uhrzeit (nach TZ weiter oben) und Wochentage,
+      # 0 = Sonntag … 6 = Samstag. Ohne Tage gilt: täglich.
+      - BRIEFING_TIME=${BRIEFING_TIME:-}
+      - BRIEFING_DAYS=${BRIEFING_DAYS:-}
       - BRIEFING_LANG=${BRIEFING_LANG:-}
       - BRIEFING_HOURS=${BRIEFING_HOURS:-}
+      # Veraltet, wird weiter verstanden und in Uhrzeit + Tage umgerechnet:
+      - BRIEFING_CRON=${BRIEFING_CRON:-}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-}
     restart: unless-stopped

@@ -33,11 +33,11 @@ Self-hosted dashboard for RSS/Atom feeds and public Telegram channels. Categorie
 
 Both stay switched off until they are set up — the buttons never even appear. Set them up in the settings window under "Integrations" (visible once signed in) or via environment variables.
 
-- **AI summary** (three sentences) and **translation** per article via the Claude API; both are cached, so each article costs at most one call
+- **AI summary** (three sentences) and **translation** per article via the configured AI provider (Anthropic, OpenAI, Google AI Studio, Groq, OpenRouter, Mistral, DeepSeek or your own OpenAI-compatible endpoint); both are cached, so each article costs at most one call
 - **Daily briefing**: every unread article of the past 24 hours grouped by topic (settings window, section "Integrations"); reused for six hours
 - **Share an article via Telegram** — to your own chat through a bot
 - **Scheduled briefing via Telegram**: pick a time and the weekdays in the settings window, Feedboard does the rest. The time applies in the server's time zone, which is shown next to the field
-- **Set-up in the window**: bot token, chat ID, AI key, model and briefing schedule can be set under "Integrations" once signed in, including a button for a test message. The secrets never leave the server again — only their last four characters are shown
+- **Set-up in the window**: bot token, chat ID, AI provider with key and model, and the briefing (time and weekdays) can be set under "Integrations" once signed in, including a button for a test message. The secrets never leave the server again — only their last four characters are shown
 
 ### Security & backup
 
@@ -85,7 +85,7 @@ The database lives in the `./data` folder and survives container restarts and up
 
 ## Configuration (environment variables)
 
-Telegram, the AI key and the briefing schedule can also be set **in the settings window under "Integrations"** — visible once you are signed in. The environment variables seed these values on the very first start; after that the settings window wins (the same behaviour as `FEEDBOARD_PASSWORD`). Starting with no environment variables at all works fine — set everything up in the settings window.
+Telegram, the AI provider with its key and the briefing schedule can also be set **in the settings window under "Integrations"** — visible once you are signed in. The environment variables seed these values on the very first start; after that the settings window wins (the same behaviour as `FEEDBOARD_PASSWORD`). Starting with no environment variables at all works fine — set everything up in the settings window.
 
 | Variable                 | Default               | Meaning                                                                                                     |
 | ------------------------ | --------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -94,11 +94,14 @@ Telegram, the AI key and the briefing schedule can also be set **in the settings
 | `DB_PATH`                | `./data/feedboard.db` | Path to the SQLite file                                                                                       |
 | `DEV_ASSETS`             | –                     | `1` = determine the asset version from file timestamps on every page request (for live frontend development)   |
 | `FEEDBOARD_PASSWORD`     | –                     | Creates the password on the very first start. Afterwards the one set in the menu applies. Empty = editing stays open. |
-| `ANTHROPIC_API_KEY`      | –                     | Seed value for the AI key (summary, translation, briefing). Afterwards the settings window applies                        |
-| `ANTHROPIC_MODEL`        | `claude-opus-5`       | Seed value for the Claude model. Afterwards the settings window applies                                                  |
+| `AI_PROVIDER`            | `anthropic`           | AI provider: `anthropic`, `openai`, `google` (AI Studio), `groq`, `openrouter`, `mistral`, `deepseek` or `custom`         |
+| `AI_MODEL`               | per provider          | Seed value for the model. The settings window can fetch the list from the provider                                       |
+| `AI_BASE_URL`            | –                     | Only with `AI_PROVIDER=custom`: OpenAI-compatible endpoint, e.g. Ollama or LM Studio on your own network                  |
+| `ANTHROPIC_API_KEY` etc. | –                     | Seed value for that provider's key — also `OPENAI_API_KEY`, `GOOGLE_AI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `MISTRAL_API_KEY`, `DEEPSEEK_API_KEY` |
 | `TELEGRAM_BOT_TOKEN`     | –                     | Seed value for the bot token (with `TELEGRAM_CHAT_ID`). Afterwards the settings window applies                                             |
 | `TELEGRAM_CHAT_ID`       | –                     | Seed value for the target chat. Afterwards the settings window applies                                                                               |
-| `BRIEFING_CRON`          | –                     | Seed value for the briefing schedule, e.g. `0 7 * * *`. Empty = off. Needs AI and Telegram. Afterwards the settings window applies    |
+| `BRIEFING_TIME`          | –                     | Seed value for the briefing time, e.g. `07:30` (per `TZ`). Empty = off. Needs AI and Telegram                             |
+| `BRIEFING_DAYS`          | daily                 | Weekdays for the briefing, `0` = Sunday … `6` = Saturday, e.g. `1,2,3,4,5`                                                |
 | `BRIEFING_LANG`          | `de`                  | Seed value for the briefing language (`de`, `en`, `ru`). Afterwards the settings window applies                                                         |
 | `BRIEFING_HOURS`         | `24`                  | Seed value for the briefing look-back in hours (1–168). Afterwards the settings window applies                                                    |
 
@@ -150,6 +153,7 @@ For Docker, the optional values are best kept in a `.env` next to `docker-compos
 | `GET /api/settings/integrations` | Read integrations (signed in only; no secrets)        |
 | `PUT /api/settings/integrations` | Set integrations (signed in only; omitted fields stay) |
 | `POST /api/settings/integrations/test-telegram` | Send a test message (signed in only)  |
+| `GET /api/settings/ai-models` | Fetch the model list from the configured provider (signed in only) |
 | `GET /api/favicon?host=…`       | Serve a favicon from the local cache                   |
 
 ### Full text, AI and sharing
@@ -198,7 +202,11 @@ telegram.js      Reading public Telegram channels, sharing articles via a bot
 opml.js          Reading and writing OPML
 extract.js       Full text from article pages (own heuristic on cheerio)
 auth.js          Password (scrypt), session cookie, per-route protection
-ai.js            Claude API: summary, translation, briefing
+ai.js            AI providers: summary, translation, briefing
+config.js        Integrations in the database (Telegram, AI, briefing), seeded from the environment
+errors.js        Errors carrying a translation key
+public/providers.js  List of AI providers (shared by server and UI)
+public/schedule.js   Briefing schedule: time and weekdays
 public/          Frontend (HTML/CSS/JS, no framework, PWA) incl. login.html
 data/            SQLite database and favicon cache (created automatically)
 ```

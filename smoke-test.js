@@ -8,6 +8,7 @@ const { JSDOM } = require('jsdom');
 const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
 const appJs = fs.readFileSync(path.join(__dirname, 'public', 'app.js'), 'utf8');
 const scheduleJs = fs.readFileSync(path.join(__dirname, 'public', 'schedule.js'), 'utf8');
+const providersJs = fs.readFileSync(path.join(__dirname, 'public', 'providers.js'), 'utf8');
 
 // Die Wörterbücher liegen seit dem i18n-Umbau als eigene Dateien und werden
 // zur Laufzeit geholt — der Test muss sie also ausliefern können.
@@ -66,9 +67,22 @@ const boardData = {
 // Antwort von /api/settings/integrations — werktags 6:30
 const integrationsData = {
   telegram: { configured: true, token_set: true, token_hint: '····1234', chat_id: '-100999' },
-  ai: { configured: true, key_set: true, key_hint: '····abcd', model: 'claude-opus-5' },
-  briefing: { cron: '30 6 * * 1,2,3,4,5', lang: 'de', hours: 24 },
-  schedule: { active: true, cron: '30 6 * * 1,2,3,4,5' },
+  ai: {
+    configured: true,
+    provider: 'anthropic',
+    providers: [
+      { id: 'anthropic', name: 'Anthropic (Claude)', base: 'https://api.anthropic.com/v1', eigene_url: false },
+      { id: 'groq', name: 'Groq', base: 'https://api.groq.com/openai/v1', eigene_url: false },
+      { id: 'custom', name: 'Eigene Basis-URL', base: '', eigene_url: true },
+    ],
+    keys: { anthropic: { set: true, hint: '····abcd' }, groq: { set: false, hint: '' } },
+    key_set: true,
+    key_hint: '····abcd',
+    base_url: '',
+    model: 'claude-opus-5',
+  },
+  briefing: { time: '06:30', days: [1, 2, 3, 4, 5], lang: 'de', hours: 24 },
+  schedule: { active: true, time: '06:30', days: [1, 2, 3, 4, 5], cron: '30 6 * * 1,2,3,4,5' },
   timezone: 'Europe/Berlin',
 };
 
@@ -111,6 +125,7 @@ async function run() {
 
   // app.js im Fenster-Kontext ausführen (schedule.js zuerst, app.js braucht es)
   window.eval(scheduleJs);
+  window.eval(providersJs);
   window.eval(appJs);
 
   // Sprachdatei und loadBoard sind async — kurz warten
@@ -194,6 +209,9 @@ async function run() {
     if (String(url).includes('/api/board')) {
       return { ok: true, status: 200, json: async () => ({ ...structuredClone(boardData), authenticated: false }) };
     }
+    if (String(url).includes('/api/settings/integrations')) {
+      return { ok: true, status: 200, json: async () => structuredClone(integrationsData) };
+    }
     return { ok: true, status: 200, json: async () => ({ ok: true }) };
   };
   doc.getElementById('btn-refresh').dispatchEvent(new window.Event('click', { bubbles: true }));
@@ -213,7 +231,9 @@ async function run() {
 
   // Empty-State testen
   window.fetch = async (url) => i18nAntwort(url)
-    || ({ ok: true, status: 200, json: async () => ({ categories: [], refreshing: false, fetch_interval_minutes: 30 }) });
+    || (String(url).includes('/api/settings/integrations')
+      ? { ok: true, status: 200, json: async () => structuredClone(integrationsData) }
+      : { ok: true, status: 200, json: async () => ({ categories: [], refreshing: false, fetch_interval_minutes: 30 }) });
   doc.getElementById('btn-refresh').dispatchEvent(new window.Event('click', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 50));
   check('Empty-State gerendert', !!doc.querySelector('.board-empty'));
@@ -322,11 +342,93 @@ async function run() {
   doc.querySelector('#settings-nav [data-section="integrations"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 120));
   check('Zeitplan: sieben Wochentag-Knöpfe', doc.querySelectorAll('#briefing-days .weekday').length === 7);
-  check('Zeitplan: Uhrzeit aus dem gespeicherten cron', doc.getElementById('input-briefing-time').value === '06:30');
+  check('Zeitplan: Uhrzeit kommt vom Server', doc.getElementById('input-briefing-time').value === '06:30');
   check('Zeitplan: genau die Werktage aktiv',
     [...doc.querySelectorAll('#briefing-days .weekday.active')].map((b) => b.dataset.day).sort().join(',') === '1,2,3,4,5');
-  check('Zeitplan: cron-Feld bleibt verborgen', doc.getElementById('briefing-cron-advanced').hidden === true);
+  check('Zeitplan: kein cron mehr in der Oberfläche',
+    !doc.getElementById('briefing-cron-advanced') && !doc.getElementById('input-briefing-cron'));
+  check('Zeitplan: Auswahl steckt auch in aria-pressed',
+    [...doc.querySelectorAll('#briefing-days .weekday')]
+      .every((b) => b.getAttribute('aria-pressed') === String(b.classList.contains('active'))));
+  check('Zeitplan: jeder Tag hat ein Merkmalsfeld neben der Farbe',
+    [...doc.querySelectorAll('#briefing-days .weekday')]
+      .every((b) => b.querySelectorAll('.weekday-mark').length === 1));
+  check('Zeitplan: Uhrzeit und Tage stehen in einer Zeile',
+    doc.querySelector('.briefing-when #input-briefing-time') && doc.querySelector('.briefing-when #briefing-days'));
+
+  // Die Statuszeile zeigte früher den rohen cron-Ausdruck
+  const statusText = doc.getElementById('integrations-status').textContent;
+  check('Zeitplan: Statuszeile im Klartext',
+    statusText.includes('Mo–Fr') && statusText.includes('06:30') && !statusText.includes('* *'));
+
+  doc.querySelector('.weekday-presets [data-days="0,1,2,3,4,5,6"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  check('Zeitplan: Schnellwahl setzt alle sieben Tage',
+    doc.querySelectorAll('#briefing-days .weekday.active').length === 7);
+  doc.querySelector('.weekday-presets [data-days="1,2,3,4,5"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  check('Zeitplan: Schnellwahl Werktage',
+    [...doc.querySelectorAll('#briefing-days .weekday.active')].map((b) => b.dataset.day).sort().join(',') === '1,2,3,4,5');
+
   check('Zeitplan: Zeitzone des Servers steht dabei', doc.getElementById('briefing-tz').textContent === 'Europe/Berlin');
+
+  // KI-Anbieter
+  const anbieterFeld = doc.getElementById('select-ai-provider');
+  check('KI: Anbieterliste kommt vom Server', anbieterFeld.options.length === 3 && anbieterFeld.value === 'anthropic');
+  check('KI: Modell steht in der Auswahl', doc.getElementById('select-ai-model').value === 'claude-opus-5');
+  check('KI: Basis-URL nur beim eigenen Endpunkt', doc.getElementById('ai-base-field').hidden === true);
+  anbieterFeld.value = 'custom';
+  anbieterFeld.dispatchEvent(new window.Event('change', { bubbles: true }));
+  check('KI: eigener Endpunkt zeigt die Basis-URL statt des Schlüssels',
+    doc.getElementById('ai-base-field').hidden === false && doc.getElementById('ai-key-field').hidden === true);
+  anbieterFeld.value = 'groq';
+  anbieterFeld.dispatchEvent(new window.Event('change', { bubbles: true }));
+  check('KI: Anbieterwechsel übernimmt nicht das fremde Modell',
+    doc.getElementById('select-ai-model').value !== 'claude-opus-5');
+  check('KI: fehlender Schlüssel wird als solcher angezeigt',
+    doc.getElementById('clear-ai-key').hidden === true && !doc.getElementById('input-ai-key').placeholder.includes('····'));
+
+  // Wochentage tragen kein data-i18n und blieben früher auf der alten Sprache
+  // (Russisch, weil "Mo" auf Deutsch und Englisch gleich hieße)
+  doc.querySelector('#seg-lang [data-lang="ru"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 120));
+  check('Sprachwechsel: Wochentage werden neu beschriftet',
+    doc.querySelector('#briefing-days .weekday').textContent.includes('Пн'));
+  check('Sprachwechsel: auch der eigene Endpunkt im Anbieter-Menü',
+    [...doc.getElementById('select-ai-provider').options].pop().textContent === 'Свой адрес API');
+  doc.querySelector('#seg-lang [data-lang="de"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 120));
+
+  // Veralteter oder stummer Server: die Auswahl steht trotzdem, denn sie kommt
+  // aus providers.js und schedule.js. Früher blieb hier alles leer.
+  const alterFetch = window.fetch;
+  doc.getElementById('btn-settings-close').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+
+  // Abmelden setzt den Merker zurück, damit die Zugänge neu geladen werden
+  window.fetch = async (url) => i18nAntwort(url)
+    || ({ ok: true, status: 200, json: async () => ({ ...structuredClone(boardData), authenticated: false }) });
+  doc.getElementById('btn-refresh').dispatchEvent(new window.Event('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 60));
+
+  // Wieder angemeldet, aber der Server kennt die Zugänge nicht (altes Backend).
+  // Die Anbieterliste wird geleert: so sähe es aus, wenn sie nie ankam.
+  doc.getElementById('select-ai-provider').innerHTML = '';
+  window.fetch = async (url) => i18nAntwort(url)
+    || (String(url).includes('/api/settings/integrations')
+      ? { ok: false, status: 404, json: async () => { throw new Error('kein JSON'); } }
+      : { ok: true, status: 200, json: async () => structuredClone(boardData) });
+  doc.getElementById('btn-refresh').dispatchEvent(new window.Event('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 120));
+
+  doc.getElementById('btn-settings').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  doc.querySelector('#settings-nav [data-section="integrations"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 120));
+  check('Ohne Serverantwort: Wochentage sind trotzdem da',
+    doc.querySelectorAll('#briefing-days .weekday').length === 7);
+  check('Ohne Serverantwort: Anbieterliste ist trotzdem gefüllt',
+    doc.getElementById('select-ai-provider').options.length === 8);
+  check('Ohne Serverantwort: Hinweis statt stiller Vorgaben',
+    doc.getElementById('integrations-status').textContent.includes('nur Vorgaben')
+    && doc.getElementById('integrations-status').classList.contains('is-error'));
+  window.fetch = alterFetch;
   check('Zugänge: Token nur als Hinweis, Feld leer',
     doc.getElementById('input-tg-token').value === '' && doc.getElementById('input-tg-token').placeholder.includes('····1234'));
 

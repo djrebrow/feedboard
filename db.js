@@ -113,6 +113,12 @@ function setSetting(key, value) {
   `).run(key, value ?? null);
 }
 
+// Für Einträge, die es nach einer Umstellung nicht mehr geben soll. Ein leerer
+// Wert würde stattdessen als „bewusst leer" gelten und bliebe stehen.
+function deleteSetting(key) {
+  db.prepare('DELETE FROM settings WHERE key = ?').run(key);
+}
+
 function getMuteWords() {
   const raw = getSetting('mute_words', '') || '';
   return raw.split('\n').map((w) => w.trim()).filter(Boolean);
@@ -620,7 +626,15 @@ const BACKUP_VERSION = 1;
 // Passwort und Cookie-Schlüssel gehören nicht in eine Sicherung: sie würde
 // sonst Zugangsdaten weitertragen, und eine eingespielte Sicherung würde einen
 // aus der eigenen Installation aussperren.
-const SECRET_SETTINGS = new Set(['password_hash', 'session_secret']);
+//
+// Dasselbe gilt für Bot-Token und KI-Schlüssel: eine Sicherungsdatei landet
+// leicht in einer Cloud oder in fremden Händen. Sie bleiben beim Einspielen
+// erhalten (siehe `keep` weiter unten), reisen aber nicht mit.
+const SECRET_SETTINGS = new Set(['password_hash', 'session_secret', 'cfg_telegram_bot_token']);
+
+function istGeheim(key) {
+  return SECRET_SETTINGS.has(key) || /^cfg_ai_key_/.test(key);
+}
 
 function exportBackup() {
   return {
@@ -630,7 +644,7 @@ function exportBackup() {
     categories: db.prepare('SELECT * FROM categories ORDER BY position, id').all(),
     feeds: db.prepare('SELECT * FROM feeds ORDER BY category_id, position, id').all(),
     articles: db.prepare('SELECT * FROM articles ORDER BY feed_id, id').all(),
-    settings: db.prepare('SELECT * FROM settings').all().filter((row) => !SECRET_SETTINGS.has(row.key)),
+    settings: db.prepare('SELECT * FROM settings').all().filter((row) => !istGeheim(row.key)),
   };
 }
 
@@ -662,7 +676,7 @@ function importBackup(data) {
   const articleColumns = columnsOf('articles');
 
   // Zugangsdaten der laufenden Installation überleben die Wiederherstellung
-  const keep = db.prepare('SELECT * FROM settings').all().filter((row) => SECRET_SETTINGS.has(row.key));
+  const keep = db.prepare('SELECT * FROM settings').all().filter((row) => istGeheim(row.key));
 
   db.exec('BEGIN');
   try {
@@ -671,7 +685,7 @@ function importBackup(data) {
     for (const row of feeds) insertRow('feeds', row, feedColumns);
     for (const row of articles) insertRow('articles', row, articleColumns);
     for (const row of settings) {
-      if (!SECRET_SETTINGS.has(row.key)) setSetting(row.key, row.value);
+      if (!istGeheim(row.key)) setSetting(row.key, row.value);
     }
     for (const row of keep) setSetting(row.key, row.value);
     db.exec('COMMIT');
@@ -757,6 +771,7 @@ module.exports = {
   importBackup,
   getSetting,
   setSetting,
+  deleteSetting,
   getMuteWords,
   setMuteWords,
   getBoard,

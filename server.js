@@ -14,6 +14,8 @@ const auth = require('./auth');
 const extract = require('./extract');
 const ai = require('./ai');
 const telegram = require('./telegram');
+const schedule = require('./public/schedule');
+const providers = require('./public/providers');
 const { fehler, toResponse } = require('./errors');
 
 const PORT = Number(process.env.PORT) || 8321;
@@ -22,6 +24,11 @@ const FETCH_INTERVAL_MINUTES = clampInterval(process.env.FETCH_INTERVAL_MINUTES,
 // Telegram, KI-Schlüssel und Briefing-Zeitplan liegen in der Datenbank und
 // sind im Zahnrad-Menü änderbar; die Umgebungsvariablen legen sie beim ersten
 // Start an. Siehe config.js.
+// Erst Bestehendes aus älteren Ständen übernehmen (nur Claude, cron-Zeitplan),
+// dann die Umgebung — sonst legte die Umgebung an, was gleich darauf ein
+// zweites Mal aus der Migration käme.
+for (const meldung of config.migrateLegacy()) console.warn(meldung);
+
 const uebernommen = config.seedFromEnv();
 if (uebernommen.length) {
   console.log(`Erststart: aus der Umgebung übernommen — ${uebernommen.join(', ')}.`);
@@ -110,9 +117,11 @@ function currentAssetVersion() {
 app.get(['/', '/index.html'], (req, res) => {
   const version = currentAssetVersion();
   let html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+  // Alle eigenen Skripte versionieren, nicht nur app.js: sonst kann der Browser
+  // eine alte schedule.js mit einer neuen app.js kombinieren.
   html = html
     .replace('href="style.css"', `href="style.css?v=${version}"`)
-    .replace('src="app.js"', `src="app.js?v=${version}"`);
+    .replace(/src="((?:app|schedule|providers)\.js)"/g, `src="$1?v=${version}"`);
   res.set('Cache-Control', 'no-cache');
   res.type('html').send(html);
 });
@@ -488,19 +497,45 @@ function serverTimezone() {
 }
 
 app.put('/api/settings/integrations', auth.protect, asyncHandler(async (req, res) => {
-  const eingabe = req.body ?? {};
+  const eingabe = { ...(req.body ?? {}) };
 
-  const plan = eingabe.briefing_cron;
-  if (typeof plan === 'string' && plan.trim() && !cron.validate(plan.trim())) {
+  // Uhrzeit und Tage statt cron: was nicht als Uhrzeit lesbar ist, wird
+  // abgelehnt statt still verworfen — sonst wäre das Briefing lautlos aus.
+  const zeit = eingabe.briefing_time;
+  if (typeof zeit === 'string' && zeit.trim() && !schedule.normalisiereZeit(zeit)) {
     return res.status(400).json(toResponse(
-      fehler('schedule_invalid_cron', `"${plan.trim()}" ist kein gültiger Zeitplan. Beispiel: 0 7 * * *`, { cron: plan.trim() })
+      fehler('schedule_invalid_time', `"${zeit.trim()}" ist keine gültige Uhrzeit. Beispiel: 07:30`, { time: zeit.trim() })
     ));
+  }
+  if (Array.isArray(eingabe.briefing_days)) {
+    eingabe.briefing_days = schedule.normalisiereTage(eingabe.briefing_days).join(',');
+  }
+
+  if (typeof eingabe.ai_provider === 'string' && eingabe.ai_provider && !providers.istBekannt(eingabe.ai_provider)) {
+    return res.status(400).json(toResponse(
+      fehler('ai_provider_unknown', `Unbekannter KI-Anbieter: ${eingabe.ai_provider}`, { provider: eingabe.ai_provider })
+    ));
+  }
+
+  // Der Schlüssel gehört zum jeweiligen Anbieter, damit ein Wechsel hin und
+  // zurück nicht jedes Mal neues Eintippen verlangt.
+  if (typeof eingabe.ai_api_key === 'string') {
+    const ziel = String(eingabe.ai_provider || config.aiProvider());
+    if (!providers.anbieter(ziel).eigeneUrl) eingabe[providers.schluesselFeld(ziel)] = eingabe.ai_api_key;
+    delete eingabe.ai_api_key;
   }
 
   config.setMany(eingabe);
   // Zeitplan, Schlüssel und Bot können sich gerade geändert haben — neu setzen.
-  const schedule = applyBriefingSchedule();
-  res.json({ ...config.publicState(), schedule, timezone: serverTimezone() });
+  // Nicht `schedule` nennen: so hieße hier das gleichnamige Modul von oben.
+  const zeitplan = applyBriefingSchedule();
+  res.json({ ...config.publicState(), schedule: zeitplan, timezone: serverTimezone() });
+}));
+
+// Was der eingerichtete Anbieter tatsächlich anbietet. Kostet einen Aufruf beim
+// Anbieter, deshalb nur auf Anforderung — nicht bei jedem Öffnen des Menüs.
+app.get('/api/settings/ai-models', auth.protect, asyncHandler(async (req, res) => {
+  res.json({ provider: config.aiProvider(), models: await ai.listModels() });
 }));
 
 // Probenachricht: ohne sie faellt ein Tippfehler erst beim naechsten Briefing auf.
@@ -625,17 +660,22 @@ let briefingTask = null;
 // Beurteilt nur — ohne Nebenwirkung, damit das Anzeigen der Einstellungen den
 // laufenden Zeitplan nicht jedes Mal zurücksetzt.
 function briefingStatus() {
-  const plan = config.get('briefing_cron');
-  if (!plan) return { active: false, reason: 'off' };
-  if (!cron.validate(plan)) return { active: false, reason: 'invalid_cron', cron: plan };
+  const zeit = config.briefingTime();
+  if (!zeit) return { active: false, reason: 'off' };
 
+  // Der cron-Ausdruck entsteht nur hier, fürs Einplanen. Gespeichert sind
+  // Uhrzeit und Wochentage.
+  const plan = config.briefingCron();
+  if (!plan || !cron.validate(plan)) return { active: false, reason: 'invalid_time', time: zeit };
+
+  const tage = config.briefingDays();
   const fehlend = [
     !ai.isEnabled() && 'ai',
     !telegram.canShare() && 'telegram',
   ].filter(Boolean);
-  if (fehlend.length) return { active: false, reason: 'missing', missing: fehlend, cron: plan };
+  if (fehlend.length) return { active: false, reason: 'missing', missing: fehlend, time: zeit, days: tage };
 
-  return { active: true, cron: plan };
+  return { active: true, time: zeit, days: tage, cron: plan };
 }
 
 function applyBriefingSchedule({ leise = false } = {}) {
@@ -652,10 +692,10 @@ function applyBriefingSchedule({ leise = false } = {}) {
       });
     });
     if (!leise) {
-      console.log(`Geplantes Briefing aktiv (${status.cron}, Sprache ${config.briefingLang()}, ${config.briefingHours()} Stunden).`);
+      console.log(`Geplantes Briefing aktiv (${status.time} Uhr an Tagen ${status.days.join(',')}, Sprache ${config.briefingLang()}, ${config.briefingHours()} Stunden).`);
     }
-  } else if (!leise && status.reason === 'invalid_cron') {
-    console.warn(`Zeitplan fürs Briefing ist ungültig: "${status.cron}" — bleibt aus.`);
+  } else if (!leise && status.reason === 'invalid_time') {
+    console.warn(`Uhrzeit fürs Briefing ist ungültig: "${status.time}" — bleibt aus.`);
   } else if (!leise && status.reason === 'missing') {
     console.warn(`Geplantes Briefing bleibt aus, nicht eingerichtet: ${status.missing.join(', ')}.`);
   }

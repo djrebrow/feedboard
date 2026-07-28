@@ -94,11 +94,15 @@
   const inputTgToken = document.getElementById('input-tg-token');
   const inputTgChat = document.getElementById('input-tg-chat');
   const inputAiKey = document.getElementById('input-ai-key');
+  const aiKeyField = document.getElementById('ai-key-field');
+  const selectAiProvider = document.getElementById('select-ai-provider');
+  const aiBaseField = document.getElementById('ai-base-field');
+  const inputAiBase = document.getElementById('input-ai-base');
+  const selectAiModel = document.getElementById('select-ai-model');
   const inputAiModel = document.getElementById('input-ai-model');
-  const inputBriefingCron = document.getElementById('input-briefing-cron');
+  const btnAiModels = document.getElementById('btn-ai-models');
   const inputBriefingTime = document.getElementById('input-briefing-time');
   const briefingDays = document.getElementById('briefing-days');
-  const briefingCronAdvanced = document.getElementById('briefing-cron-advanced');
   const briefingTz = document.getElementById('briefing-tz');
   const inputBriefingHours = document.getElementById('input-briefing-hours');
   const selectBriefingLang = document.getElementById('select-briefing-lang');
@@ -211,6 +215,7 @@
     document.documentElement.lang = ziel;
     applyStaticI18n();
     updateLangButtons();
+    aktualisiereZugangsTexte();
     renderShortcutList();
     updateClock();
     render();
@@ -1090,6 +1095,9 @@
     const darfEinrichten = !locked;
     settingsIntegrations.hidden = !darfEinrichten;
     integrationsLocked.hidden = darfEinrichten;
+    // Sichtbar heißt ausgefüllt: Wochentage und Anbieterliste stehen im
+    // Browser und warten nicht auf den Server.
+    if (darfEinrichten) zeigeGrundgeruest();
     if (darfEinrichten && !integrationsGeladen) loadIntegrations();
     if (!darfEinrichten) integrationsGeladen = false;
   }
@@ -1100,24 +1108,50 @@
 
   let integrationsGeladen = false;
 
-  function scheduleText(schedule) {
-    if (!schedule) return '';
-    if (schedule.active) return t('schedule_active', { cron: schedule.cron });
-    if (schedule.reason === 'invalid_cron') return t('schedule_invalid');
-    if (schedule.reason === 'missing') return t('schedule_missing', { what: (schedule.missing || []).join(', ') });
-    return t('schedule_off');
-  }
-
-  // ---- Briefing-Zeitplan: Uhrzeit und Wochentage statt cron ----------------
-  // Gespeichert wird weiterhin cron. Ein von Hand eingetragener Ausdruck, den
-  // die Auswahl nicht abbilden kann, wird im Feld für Fortgeschrittene
-  // sichtbar gemacht statt beim nächsten Speichern überschrieben zu werden.
+  // ---- Briefing-Zeitplan: Uhrzeit und Wochentage --------------------------
+  // Es gibt keinen cron-Ausdruck mehr, weder gespeichert noch angezeigt. Was
+  // hier steht, ist genau das, was auch in der Datenbank landet.
 
   const TAG_SCHLUESSEL = { 0: 'day_sun', 1: 'day_mon', 2: 'day_tue', 3: 'day_wed', 4: 'day_thu', 5: 'day_fri', 6: 'day_sat' };
 
+  function tagName(d) {
+    return t(TAG_SCHLUESSEL[d]);
+  }
+
+  // "Mo–Fr" statt "1,2,3,4,5"; einzelne Tage werden aufgezählt.
+  function tageText(tage) {
+    const spannen = FeedboardSchedule.gruppiereTage(tage);
+    if (!spannen.length) return '';
+    if (spannen.length === 1 && spannen[0][0] === 1 && spannen[0][1] === 0) return t('briefing_every_day');
+    return spannen
+      .map(([von, bis]) => (von === bis ? tagName(von) : `${tagName(von)}–${tagName(bis)}`))
+      .join(', ');
+  }
+
+  // Die Statuszeile sagt im Klartext, wann das Briefing läuft — früher stand
+  // dort der rohe cron-Ausdruck, der niemandem etwas verriet.
+  function scheduleText(schedule) {
+    if (!schedule) return '';
+    if (schedule.active) {
+      return t('schedule_active', { when: `${tageText(schedule.days)}, ${schedule.time}` });
+    }
+    if (schedule.reason === 'invalid_time') return t('schedule_invalid');
+    if (schedule.reason === 'missing') {
+      const was = (schedule.missing || []).map((m) => t(`missing_${m}`)).join(', ');
+      return t('schedule_missing', { what: was });
+    }
+    return t('schedule_off');
+  }
+
   function renderWeekdays(gewaehlt) {
     briefingDays.innerHTML = FeedboardSchedule.WOCHENTAGE
-      .map((d) => `<button type="button" class="weekday${gewaehlt.includes(d) ? ' active' : ''}" data-day="${d}">${esc(t(TAG_SCHLUESSEL[d]))}</button>`)
+      .map((d) => {
+        const an = gewaehlt.includes(d);
+        // aria-pressed für Screenreader, der Balken (siehe style.css) fürs Auge:
+        // so hängt die Auswahl nicht allein an der Farbe.
+        return `<button type="button" class="weekday${an ? ' active' : ''}" data-day="${d}" aria-pressed="${an}">`
+          + `<span class="weekday-mark" aria-hidden="true"></span>${esc(tagName(d))}</button>`;
+      })
       .join('');
   }
 
@@ -1125,36 +1159,28 @@
     return [...briefingDays.querySelectorAll('.weekday.active')].map((b) => Number(b.dataset.day));
   }
 
-  function applySchedule(cronAusdruck, zeitzone) {
-    const zerlegt = FeedboardSchedule.ausCron(cronAusdruck);
-    if (zerlegt) {
-      inputBriefingTime.value = zerlegt.zeit;
-      renderWeekdays(zerlegt.tage);
-      briefingCronAdvanced.hidden = true;
-      inputBriefingCron.value = '';
-    } else {
-      // Leer (= aus) oder zu ausgefallen für die Auswahl
-      inputBriefingTime.value = '';
-      renderWeekdays([]);
-      briefingCronAdvanced.hidden = !cronAusdruck;
-      inputBriefingCron.value = cronAusdruck || '';
-    }
+  function applySchedule(zeit, tage, zeitzone) {
+    inputBriefingTime.value = zeit || '';
+    renderWeekdays(Array.isArray(tage) ? tage : []);
     // Die Uhrzeit gilt in der Zeitzone des Servers, nicht in der des Browsers —
     // deshalb kommt sie vom Server und wird an die Uhrzeit geschrieben.
     briefingTz.textContent = zeitzone || '';
   }
 
-  // Was gespeichert wird: das Feld für Fortgeschrittene hat Vorrang, solange
-  // es sichtbar ist und etwas enthält.
-  function currentCron() {
-    if (!briefingCronAdvanced.hidden && inputBriefingCron.value.trim()) return inputBriefingCron.value.trim();
-    if (!inputBriefingTime.value) return '';
-    return FeedboardSchedule.zuCron({ zeit: inputBriefingTime.value, tage: gewaehlteTage() });
-  }
-
   briefingDays.addEventListener('click', (event) => {
     const knopf = event.target.closest('.weekday');
-    if (knopf) knopf.classList.toggle('active');
+    if (!knopf) return;
+    const tage = new Set(gewaehlteTage());
+    const tag = Number(knopf.dataset.day);
+    if (tage.has(tag)) tage.delete(tag);
+    else tage.add(tag);
+    renderWeekdays([...tage]);
+  });
+
+  document.querySelectorAll('.weekday-presets [data-days]').forEach((knopf) => {
+    knopf.addEventListener('click', () => {
+      renderWeekdays(knopf.dataset.days.split(',').map(Number));
+    });
   });
 
   // Uhrzeit gesetzt, aber kein Tag gewählt: dann liefe nie etwas — alle Tage an
@@ -1162,23 +1188,157 @@
     if (inputBriefingTime.value && !gewaehlteTage().length) renderWeekdays([0, 1, 2, 3, 4, 5, 6]);
   });
 
+  // ---- KI-Anbieter ---------------------------------------------------------
+  // Die Anbieterliste kommt vom Server (public/providers.js teilen sich beide),
+  // die Modelle holt der Server auf Anforderung beim Anbieter selbst.
+
+  let aiZustand = null; // zuletzt vom Server gemeldeter Stand
+
+  function aktuellerAnbieter() {
+    return FeedboardProviders.anbieter(selectAiProvider.value);
+  }
+
+  // Die Liste steht auch hier im Browser (providers.js) — der Server bestätigt
+  // sie nur. Antwortet er nicht, bleibt die Auswahl trotzdem bedienbar, statt
+  // als leeres Feld dazustehen.
+  function lokaleAnbieter() {
+    return FeedboardProviders.ANBIETER.map((a) => ({ id: a.id, name: a.name, eigene_url: !!a.eigeneUrl }));
+  }
+
+  function renderProviders(daten) {
+    const liste = daten?.providers?.length ? daten.providers : lokaleAnbieter();
+    selectAiProvider.innerHTML = liste
+      .map((p) => `<option value="${esc(p.id)}">${esc(p.eigene_url ? t('ai_provider_custom') : p.name)}</option>`)
+      .join('');
+    selectAiProvider.value = FeedboardProviders.istBekannt(daten?.provider) ? daten.provider : liste[0].id;
+  }
+
+  // Modellauswahl: die gespeicherte Angabe steht immer drin, auch wenn keine
+  // Liste geladen wurde. „Anderes Modell…" blendet ein Textfeld ein.
+  function renderModels(modelle, aktuell) {
+    const ids = modelle.map((m) => m.id);
+    if (aktuell && !ids.includes(aktuell)) modelle = [{ id: aktuell, name: aktuell }, ...modelle];
+
+    selectAiModel.innerHTML = modelle
+      .map((m) => `<option value="${esc(m.id)}">${esc(m.name || m.id)}</option>`)
+      .join('') + `<option value="__frei">${esc(t('ai_model_custom'))}</option>`;
+
+    if (aktuell) selectAiModel.value = aktuell;
+    // Ohne bekanntes Modell bleibt nur „anderes Modell …" übrig — dann muss das
+    // Textfeld sichtbar sein, sonst gäbe es nichts einzutragen.
+    inputAiModel.hidden = selectAiModel.value !== '__frei';
+  }
+
+  function aktuellesModell() {
+    if (selectAiModel.value === '__frei') return inputAiModel.value.trim();
+    return selectAiModel.value;
+  }
+
+  // Was der Anbieter braucht: eigener Endpunkt eine URL, alle anderen einen
+  // Schlüssel.
+  function updateProviderFields() {
+    const anbieter = aktuellerAnbieter();
+    aiBaseField.hidden = !anbieter.eigeneUrl;
+    aiKeyField.hidden = !!anbieter.eigeneUrl;
+
+    const bekannt = aiZustand?.keys?.[anbieter.id];
+    inputAiKey.placeholder = bekannt?.set ? t('integrations_keep', { hint: bekannt.hint }) : t('integrations_unset');
+    clearAiKey.hidden = !bekannt?.set;
+  }
+
+  selectAiProvider.addEventListener('change', () => {
+    updateProviderFields();
+    // Modelle des einen Anbieters sagen über den anderen nichts aus.
+    const anbieter = aktuellerAnbieter();
+    const vorschlag = aiZustand?.provider === anbieter.id ? aiZustand.model : anbieter.standard;
+    renderModels(vorschlag ? [{ id: vorschlag, name: vorschlag }] : [], vorschlag);
+    setIntegrationsStatus(t('ai_models_hint'), '');
+  });
+
+  selectAiModel.addEventListener('change', () => {
+    inputAiModel.hidden = selectAiModel.value !== '__frei';
+    if (!inputAiModel.hidden) inputAiModel.focus();
+  });
+
+  // Holt die Liste beim Anbieter — mit dem gespeicherten Schlüssel, deshalb
+  // erst nach dem Speichern sinnvoll.
+  async function loadModels() {
+    btnAiModels.disabled = true;
+    setIntegrationsStatus(t('ai_models_loading'), '');
+    try {
+      const antwort = await api('/api/settings/ai-models');
+      // Der Server fragt den gespeicherten Anbieter — wer oben gerade einen
+      // anderen ausgewählt hat, bekäme sonst wortlos die falsche Liste.
+      if (antwort.provider !== selectAiProvider.value) {
+        setIntegrationsStatus(t('ai_models_hint'), 'error');
+        return;
+      }
+      if (!antwort.models.length) {
+        setIntegrationsStatus(t('ai_models_empty'), 'error');
+        return;
+      }
+      renderModels(antwort.models, aktuellesModell() || aiZustand?.model);
+      setIntegrationsStatus(t('ai_models_ok', { n: antwort.models.length }), 'ok');
+    } catch (error) {
+      setIntegrationsStatus(error.message, 'error');
+    } finally {
+      btnAiModels.disabled = false;
+    }
+  }
+
+  // Nach einem Sprachwechsel: neu beschriften, was per JS erzeugt wurde und
+  // deshalb kein data-i18n trägt — die Wochentage blieben sonst auf der alten
+  // Sprache stehen.
+  function aktualisiereZugangsTexte() {
+    if (briefingDays.children.length) renderWeekdays(gewaehlteTage());
+    if (!selectAiProvider.options.length) return;
+    const modell = aktuellesModell();
+    const bekannt = [...selectAiModel.options]
+      .filter((o) => o.value !== '__frei')
+      .map((o) => ({ id: o.value, name: o.textContent }));
+    renderProviders({ providers: aiZustand?.providers, provider: selectAiProvider.value });
+    renderModels(bekannt, modell);
+    updateProviderFields();
+  }
+
+  // Die Anzeige, bevor (oder ohne dass) der Server geantwortet hat: Wochentage
+  // und Anbieterliste stehen im Browser, die Felder sind also nie leer. Ein
+  // älterer Server, der die Zugänge gar nicht kennt, führte hier früher zu
+  // einer leeren Tagesreihe und einem leeren Anbieter-Menü.
+  function zeigeGrundgeruest() {
+    if (!briefingDays.children.length) renderWeekdays([]);
+    if (!selectAiProvider.options.length) {
+      renderProviders(null);
+      renderModels([], aktuellerAnbieter().standard || '');
+      updateProviderFields();
+    }
+  }
+
   function applyIntegrations(data) {
+    // Nachsichtig gegenüber unvollständigen Antworten: lieber eine Vorgabe
+    // anzeigen als mittendrin abbrechen und alles leer lassen.
+    const telegram = data.telegram || {};
+    const ki = data.ai || {};
+    const briefing = data.briefing || {};
+
     inputTgToken.value = '';
     inputAiKey.value = '';
-    inputTgToken.placeholder = data.telegram.token_set
-      ? t('integrations_keep', { hint: data.telegram.token_hint })
+    inputTgToken.placeholder = telegram.token_set
+      ? t('integrations_keep', { hint: telegram.token_hint })
       : t('integrations_unset');
-    inputAiKey.placeholder = data.ai.key_set
-      ? t('integrations_keep', { hint: data.ai.key_hint })
-      : t('integrations_unset');
-    clearTgToken.hidden = !data.telegram.token_set;
-    clearAiKey.hidden = !data.ai.key_set;
+    clearTgToken.hidden = !telegram.token_set;
 
-    inputTgChat.value = data.telegram.chat_id || '';
-    inputAiModel.value = data.ai.model || '';
-    applySchedule(data.briefing.cron || '', data.timezone);
-    inputBriefingHours.value = data.briefing.hours;
-    selectBriefingLang.value = data.briefing.lang;
+    inputTgChat.value = telegram.chat_id || '';
+
+    aiZustand = ki;
+    renderProviders(ki);
+    inputAiBase.value = ki.base_url || '';
+    updateProviderFields();
+    renderModels([], ki.model || aktuellerAnbieter().standard || '');
+
+    applySchedule(briefing.time, briefing.days, data.timezone);
+    if (briefing.hours) inputBriefingHours.value = briefing.hours;
+    if (briefing.lang) selectBriefingLang.value = briefing.lang;
 
     setIntegrationsStatus(scheduleText(data.schedule), '');
   }
@@ -1190,11 +1350,14 @@
   }
 
   async function loadIntegrations() {
+    zeigeGrundgeruest();
     try {
       applyIntegrations(await api('/api/settings/integrations'));
       integrationsGeladen = true;
     } catch (error) {
-      setIntegrationsStatus(error.message, 'error');
+      // Deutlich sagen, dass unten nur Vorgaben stehen — sonst hält man sie für
+      // den gespeicherten Stand.
+      setIntegrationsStatus(t('integrations_unavailable', { error: error.message }), 'error');
     }
   }
 
@@ -1202,14 +1365,18 @@
     // Sichtbare Felder gehen immer mit — leer heißt hier wirklich leer.
     const daten = {
       telegram_chat_id: inputTgChat.value,
-      anthropic_model: inputAiModel.value,
-      briefing_cron: currentCron(),
+      ai_provider: selectAiProvider.value,
+      ai_model: aktuellesModell(),
+      ai_base_url: inputAiBase.value,
+      briefing_time: inputBriefingTime.value,
+      briefing_days: gewaehlteTage(),
       briefing_hours: inputBriefingHours.value,
       briefing_lang: selectBriefingLang.value,
     };
-    // Geheimnisse nur, wenn tatsächlich etwas eingetippt wurde.
+    // Geheimnisse nur, wenn tatsächlich etwas eingetippt wurde. Der Schlüssel
+    // gehört zum gewählten Anbieter — der Server ordnet ihn zu.
     if (inputTgToken.value.trim()) daten.telegram_bot_token = inputTgToken.value;
-    if (inputAiKey.value.trim()) daten.anthropic_api_key = inputAiKey.value;
+    if (inputAiKey.value.trim()) daten.ai_api_key = inputAiKey.value;
 
     btnIntegrationsSave.disabled = true;
     try {
@@ -2180,8 +2347,10 @@
   chkDedupe.addEventListener('change', () => setDedupe(chkDedupe.checked));
   btnIntegrationsSave.addEventListener('click', saveIntegrations);
   btnIntegrationsTest.addEventListener('click', testTelegram);
+  btnAiModels.addEventListener('click', loadModels);
   clearTgToken.addEventListener('click', () => clearSecret('telegram_bot_token'));
-  clearAiKey.addEventListener('click', () => clearSecret('anthropic_api_key'));
+  // Entfernt wird der Schlüssel des gerade gewählten Anbieters, nicht irgendeiner.
+  clearAiKey.addEventListener('click', () => clearSecret(FeedboardProviders.schluesselFeld(selectAiProvider.value)));
   chkFaviconCache.addEventListener('change', () => setFaviconCache(chkFaviconCache.checked));
   btnMuteSave.addEventListener('click', saveMuteWords);
 

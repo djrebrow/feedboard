@@ -157,6 +157,17 @@
                           </div>
 
                           <div class="settings-field">
+                            <label class="settings-field-label" for="select-ai-provider" data-i18n="ai_provider_label">KI-Anbieter</label>
+                            <select id="select-ai-provider" class="settings-input"></select>
+                          </div>
+
+                          <!-- Nur bei „Eigene Basis-URL": Ollama, LM Studio, vLLM im eigenen Netz. -->
+                          <div class="settings-field" id="ai-base-field" hidden>
+                            <label class="settings-field-label" for="input-ai-base" data-i18n="ai_base_label">Basis-URL</label>
+                            <input type="url" id="input-ai-base" class="settings-input" autocomplete="off" spellcheck="false" placeholder="http://localhost:11434/v1">
+                          </div>
+
+                          <div class="settings-field" id="ai-key-field">
                             <label class="settings-field-label" for="input-ai-key">
                               <span data-i18n="ai_key_label">KI-Schlüssel</span>
                               <button type="button" class="settings-clear" id="clear-ai-key" hidden data-i18n="clear">entfernen</button>
@@ -165,29 +176,33 @@
                           </div>
 
                           <div class="settings-field">
-                            <label class="settings-field-label" for="input-ai-model" data-i18n="ai_model_label">KI-Modell</label>
-                            <input type="text" id="input-ai-model" class="settings-input" autocomplete="off" spellcheck="false">
+                            <label class="settings-field-label" for="select-ai-model">
+                              <span data-i18n="ai_model_label">KI-Modell</span>
+                              <button type="button" class="settings-clear" id="btn-ai-models" data-i18n="ai_models_load">Liste laden</button>
+                            </label>
+                            <select id="select-ai-model" class="settings-input"></select>
+                            <!-- Rückfallebene: ohne gespeicherten Schlüssel oder bei einem
+                                 eigenen Endpunkt lässt sich keine Liste holen. -->
+                            <input type="text" id="input-ai-model" class="settings-input" autocomplete="off" spellcheck="false" hidden data-i18n-placeholder="ai_model_placeholder" placeholder="Modellname">
                           </div>
 
+                          <!-- Uhrzeit und Wochentage gehören zusammen und stehen
+                               deshalb in einer Zeile. Die Tage sind immer da,
+                               auch bevor der Server geantwortet hat. -->
                           <div class="settings-field">
                             <label class="settings-field-label" for="input-briefing-time">
                               <span data-i18n="briefing_time_label">Briefing um</span>
                               <span class="settings-hint" id="briefing-tz"></span>
                             </label>
-                            <input type="time" id="input-briefing-time" class="settings-input settings-input-narrow">
-                          </div>
-
-                          <div class="settings-field">
-                            <span class="settings-field-label" data-i18n="briefing_days_label">An diesen Tagen</span>
-                            <div class="weekdays" id="briefing-days"></div>
-                          </div>
-
-                          <!-- Auffangnetz: ein von Hand eingetragener Ausdruck, den die
-                               Auswahl oben nicht abbilden kann, wird hier angezeigt statt
-                               beim naechsten Speichern still ueberschrieben zu werden. -->
-                          <div class="settings-field" id="briefing-cron-advanced" hidden>
-                            <label class="settings-field-label" for="input-briefing-cron" data-i18n="briefing_cron_label">Zeitplan (cron)</label>
-                            <input type="text" id="input-briefing-cron" class="settings-input" autocomplete="off" spellcheck="false" placeholder="0 7 * * *">
+                            <div class="briefing-when">
+                              <input type="time" id="input-briefing-time" class="settings-input briefing-time">
+                              <div class="weekdays" id="briefing-days" role="group" aria-labelledby="briefing-days-label"></div>
+                            </div>
+                            <div class="weekday-presets">
+                              <span class="settings-hint" id="briefing-days-label" data-i18n="briefing_days_label">An diesen Tagen</span>
+                              <button type="button" class="settings-clear" data-days="1,2,3,4,5" data-i18n="days_workdays">Mo–Fr</button>
+                              <button type="button" class="settings-clear" data-days="0,1,2,3,4,5,6" data-i18n="briefing_every_day">täglich</button>
+                            </div>
                           </div>
 
                           <div class="settings-field settings-field-row">
@@ -270,6 +285,7 @@
   <div id="toast-container" class="toast-container" aria-live="assertive"></div>
 
   <script src="schedule.js"></script>
+  <script src="providers.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

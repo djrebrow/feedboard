@@ -33,11 +33,11 @@ Selbstgehostetes Dashboard für RSS-/Atom-Feeds und öffentliche Telegram-Kanäl
 
 Beide Funktionen sind aus, solange sie nicht eingerichtet sind — die Knöpfe erscheinen dann gar nicht erst. Eingerichtet wird im Einstellungsfenster unter „Zugänge“ (nur angemeldet sichtbar) oder über Umgebungsvariablen.
 
-- **KI-Kurzfassung** (drei Sätze) und **Übersetzung** je Artikel über die Claude API; beides wird zwischengespeichert, kostet also höchstens einen Aufruf je Artikel
+- **KI-Kurzfassung** (drei Sätze) und **Übersetzung** je Artikel über den eingerichteten KI-Anbieter (Anthropic, OpenAI, Google AI Studio, Groq, OpenRouter, Mistral, DeepSeek oder ein eigener OpenAI-kompatibler Endpunkt); beides wird zwischengespeichert, kostet also höchstens einen Aufruf je Artikel
 - **Tages-Briefing**: alle ungelesenen Artikel der letzten 24 Stunden nach Themen gebündelt (Einstellungsfenster, Bereich „Zugänge"); wird sechs Stunden lang wiederverwendet
 - **Artikel per Telegram teilen** — an den eigenen Chat über einen Bot
 - **Geplantes Briefing per Telegram**: Uhrzeit und Wochentage im Einstellungsfenster wählen, den Rest erledigt Feedboard. Die Uhrzeit gilt in der Zeitzone des Servers, sie steht neben dem Feld
-- **Einrichtung im Fenster**: Bot-Token, Chat-ID, KI-Schlüssel, Modell und Briefing-Zeitplan sind nach der Anmeldung unter „Zugänge" setzbar, samt Knopf für eine Testnachricht. Die Geheimnisse verlassen den Server nie wieder — angezeigt werden nur ihre letzten vier Zeichen
+- **Einrichtung im Fenster**: Bot-Token, Chat-ID, KI-Anbieter samt Schlüssel und Modell sowie das Briefing (Uhrzeit und Wochentage) sind nach der Anmeldung unter „Zugänge" setzbar, samt Knopf für eine Testnachricht. Die Geheimnisse verlassen den Server nie wieder — angezeigt werden nur ihre letzten vier Zeichen
 
 ### Sicherheit & Sicherung
 
@@ -85,7 +85,7 @@ Die Datenbank liegt im Ordner `./data` und überlebt Container-Neustarts und -Up
 
 ## Konfiguration (Umgebungsvariablen)
 
-Telegram, der KI-Schlüssel und der Briefing-Zeitplan lassen sich auch **im Einstellungsfenster unter „Zugänge"** setzen — sichtbar, sobald man angemeldet ist. Die Umgebungsvariablen legen diese Werte beim allerersten Start an; danach gilt, was im Einstellungsfenster steht (dasselbe Verhalten wie bei `FEEDBOARD_PASSWORD`). Wer ganz ohne Umgebungsvariablen startet, richtet alles im Einstellungsfenster ein.
+Telegram, der KI-Anbieter samt Schlüssel und der Briefing-Zeitplan lassen sich auch **im Einstellungsfenster unter „Zugänge"** setzen — sichtbar, sobald man angemeldet ist. Die Umgebungsvariablen legen diese Werte beim allerersten Start an; danach gilt, was im Einstellungsfenster steht (dasselbe Verhalten wie bei `FEEDBOARD_PASSWORD`). Wer ganz ohne Umgebungsvariablen startet, richtet alles im Einstellungsfenster ein.
 
 | Variable                 | Standard              | Bedeutung                                                                                                            |
 | ------------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -94,11 +94,14 @@ Telegram, der KI-Schlüssel und der Briefing-Zeitplan lassen sich auch **im Eins
 | `DB_PATH`                | `./data/feedboard.db` | Pfad zur SQLite-Datei                                                                                                  |
 | `DEV_ASSETS`             | –                     | `1` = Asset-Version bei jedem Seitenaufruf neu aus den Dateizeiten bestimmen (für die Live-Entwicklung des Frontends)   |
 | `FEEDBOARD_PASSWORD`     | –                     | Legt beim allerersten Start das Passwort an. Danach gilt, was im Menü gesetzt wurde. Leer = bearbeiten bleibt offen.     |
-| `ANTHROPIC_API_KEY`      | –                     | Startwert für den KI-Schlüssel (Kurzfassung, Übersetzung, Briefing). Danach gilt das Einstellungsfenster                               |
-| `ANTHROPIC_MODEL`        | `claude-opus-5`       | Startwert für das Claude-Modell. Danach gilt das Einstellungsfenster                                                                  |
+| `AI_PROVIDER`            | `anthropic`           | KI-Anbieter: `anthropic`, `openai`, `google` (AI Studio), `groq`, `openrouter`, `mistral`, `deepseek` oder `custom`                     |
+| `AI_MODEL`               | je Anbieter           | Startwert für das Modell. Im Einstellungsfenster lässt sich die Liste beim Anbieter abrufen                                             |
+| `AI_BASE_URL`            | –                     | Nur bei `AI_PROVIDER=custom`: OpenAI-kompatibler Endpunkt, z. B. Ollama oder LM Studio im eigenen Netz                                  |
+| `ANTHROPIC_API_KEY` u. a.| –                     | Startwert für den Schlüssel des jeweiligen Anbieters — außerdem `OPENAI_API_KEY`, `GOOGLE_AI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `MISTRAL_API_KEY`, `DEEPSEEK_API_KEY` |
 | `TELEGRAM_BOT_TOKEN`     | –                     | Startwert für den Bot-Token (zusammen mit `TELEGRAM_CHAT_ID`). Danach gilt das Einstellungsfenster                                    |
 | `TELEGRAM_CHAT_ID`       | –                     | Startwert für den Ziel-Chat. Danach gilt das Einstellungsfenster                                                                       |
-| `BRIEFING_CRON`          | –                     | Startwert für den Briefing-Zeitplan, z. B. `0 7 * * *`. Leer = aus. Braucht KI-Zugang und Telegram. Danach gilt das Einstellungsfenster |
+| `BRIEFING_TIME`          | –                     | Startwert für die Uhrzeit des Briefings, z. B. `07:30` (nach `TZ`). Leer = aus. Braucht KI-Zugang und Telegram                          |
+| `BRIEFING_DAYS`          | täglich               | Wochentage des Briefings, `0` = Sonntag … `6` = Samstag, z. B. `1,2,3,4,5`                                                             |
 | `BRIEFING_LANG`          | `de`                  | Startwert für die Sprache des Briefings (`de`, `en`, `ru`). Danach gilt das Einstellungsfenster                                        |
 | `BRIEFING_HOURS`         | `24`                  | Startwert für den Rückblick des Briefings in Stunden (1–168). Danach gilt das Einstellungsfenster                                      |
 
@@ -150,6 +153,7 @@ Für Docker liegen die optionalen Werte am besten in einer `.env` neben der `doc
 | `GET /api/settings/integrations` | Zugänge lesen (nur angemeldet; ohne Geheimnisse)           |
 | `PUT /api/settings/integrations` | Zugänge setzen (nur angemeldet; fehlende Felder unverändert) |
 | `POST /api/settings/integrations/test-telegram` | Testnachricht schicken (nur angemeldet)     |
+| `GET /api/settings/ai-models` | Modellliste beim eingerichteten Anbieter abrufen (nur angemeldet) |
 | `GET /api/favicon?host=…`        | Favicon über den lokalen Cache ausliefern                  |
 
 ### Volltext, KI und Teilen
@@ -198,7 +202,11 @@ telegram.js      Öffentliche Telegram-Kanäle lesen, Artikel per Bot teilen
 opml.js          OPML lesen und schreiben
 extract.js       Volltext aus Artikelseiten (eigene Heuristik auf cheerio)
 auth.js          Passwort (scrypt), Session-Cookie, Schutz einzelner Routen
-ai.js            Claude API: Kurzfassung, Übersetzung, Briefing
+ai.js            KI-Anbieter: Kurzfassung, Übersetzung, Briefing
+config.js        Zugänge in der Datenbank (Telegram, KI, Briefing), Startwerte aus der Umgebung
+errors.js        Fehler mit Übersetzungsschlüssel
+public/providers.js  Liste der KI-Anbieter (Server und Oberfläche teilen sie sich)
+public/schedule.js   Briefing-Zeitplan: Uhrzeit und Wochentage
 public/          Frontend (HTML/CSS/JS, ohne Framework, PWA) inkl. login.html
 data/            SQLite-Datenbank und Favicon-Cache (werden automatisch angelegt)
 ```
