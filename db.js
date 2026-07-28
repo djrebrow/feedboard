@@ -15,6 +15,10 @@ const db = new DatabaseSync(DB_PATH);
 
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
+// Ohne Wartezeit scheitert jeder Schreibzugriff sofort, sobald die Datei kurz
+// gesperrt ist — etwa durch ein Backup oder eine zweite Instanz. Fuenf Sekunden
+// warten ist allemal besser als ein Fehler.
+db.exec('PRAGMA busy_timeout = 5000');
 
 // SQLite kennt nur ASCII-Kleinschreibung: "ÜBER" LIKE "%über%" ergibt 0.
 // Fuer deutsche und russische Inhalte ist das zu wenig, deshalb eine eigene

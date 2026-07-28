@@ -577,15 +577,21 @@ app.listen(PORT, () => {
 
 // Kurz nach dem Start einmal alles laden, danach im Intervall
 setTimeout(() => {
-  fetcher.refreshAllFeeds().then((result) => {
-    if (!result.skipped) console.log(`Initiale Aktualisierung: ${result.ok} ok, ${result.failed} fehlgeschlagen.`);
-  });
+  fetcher.refreshAllFeeds()
+    .then((result) => {
+      if (!result.skipped) console.log(`Initiale Aktualisierung: ${result.ok} ok, ${result.failed} fehlgeschlagen.`);
+    })
+    // Ohne diesen Fang beendet eine unbehandelte Rejection den ganzen Prozess.
+    // Ein misslungener Abruf darf Feedboard nicht herunterreissen.
+    .catch((error) => console.error('Initiale Aktualisierung fehlgeschlagen:', error.message));
 }, 3000);
 
 cron.schedule(`*/${FETCH_INTERVAL_MINUTES} * * * *`, () => {
-  fetcher.refreshAllFeeds().then((result) => {
-    if (!result.skipped) console.log(`Automatische Aktualisierung: ${result.ok} ok, ${result.failed} fehlgeschlagen.`);
-  });
+  fetcher.refreshAllFeeds()
+    .then((result) => {
+      if (!result.skipped) console.log(`Automatische Aktualisierung: ${result.ok} ok, ${result.failed} fehlgeschlagen.`);
+    })
+    .catch((error) => console.error('Automatische Aktualisierung fehlgeschlagen:', error.message));
 });
 
 // ---------------------------------------------------------------------------
