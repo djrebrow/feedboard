@@ -216,5 +216,14 @@
   "err_tg_channel_undetected": "Telegram-Kanal konnte nicht ermittelt werden.",
   "err_tg_channel_empty": "Kein öffentlicher Telegram-Kanal oder keine Nachrichten gefunden.",
   "err_tg_channel_exists": "Dieser Kanal ist bereits vorhanden („{name}“).",
-  "err_schedule_invalid_cron": "„{cron}“ ist kein gültiger Zeitplan."
+  "err_schedule_invalid_cron": "„{cron}“ ist kein gültiger Zeitplan.",
+  "section_appearance": "Darstellung",
+  "section_reading": "Lesen",
+  "section_integrations": "Zugänge",
+  "section_data": "Daten",
+  "section_account": "Zugang",
+  "section_keyboard": "Tastatur",
+  "lang_label": "Sprache",
+  "close": "Schließen",
+  "integrations_locked": "Zum Einrichten bitte anmelden."
 }

@@ -216,5 +216,14 @@
   "err_tg_channel_undetected": "The Telegram channel could not be determined.",
   "err_tg_channel_empty": "No public Telegram channel or no messages found.",
   "err_tg_channel_exists": "This channel already exists (“{name}”).",
-  "err_schedule_invalid_cron": "“{cron}” is not a valid schedule."
+  "err_schedule_invalid_cron": "“{cron}” is not a valid schedule.",
+  "section_appearance": "Appearance",
+  "section_reading": "Reading",
+  "section_integrations": "Integrations",
+  "section_data": "Data",
+  "section_account": "Access",
+  "section_keyboard": "Keyboard",
+  "lang_label": "Language",
+  "close": "Close",
+  "integrations_locked": "Please sign in to set this up."
 }

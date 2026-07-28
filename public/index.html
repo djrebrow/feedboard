@@ -45,154 +45,184 @@
             <svg class="icon icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
             <span class="tool-label" data-i18n="refresh_label">Aktualisieren</span>
           </button>
-          <div class="settings" id="settings">
-            <button id="btn-settings" class="tool-btn tool-btn-icon" title="Einstellungen" data-i18n-title="settings_title" aria-expanded="false" aria-haspopup="true">
-              <svg class="icon icon-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            </button>
-            <div class="settings-menu" id="settings-menu" hidden>
-              <div class="settings-actions">
-                <button id="btn-lang" class="round-btn round-btn-lang" type="button" title="Sprache wechseln" data-i18n-title="lang_switch_title"><span class="lang-label">DE</span></button>
-                <button id="btn-edit" class="round-btn" type="button" title="Rubriken und Feeds verwalten" data-i18n-title="edit_title">
+          <button id="btn-edit" class="tool-btn tool-btn-icon" type="button" title="Rubriken und Feeds verwalten" data-i18n-title="edit_title">
                   <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                 </button>
-                <button id="btn-theme" class="round-btn" type="button" title="Design wechseln (hell/dunkel)" data-i18n-title="theme_title">
+          <button id="btn-theme" class="tool-btn tool-btn-icon" type="button" title="Design wechseln (hell/dunkel)" data-i18n-title="theme_title">
                   <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
                   <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
                 </button>
-              </div>
-
-              <div class="settings-row">
-                <span class="settings-label" data-i18n="theme_label">Design</span>
-                <div class="seg" id="seg-theme">
-                  <button type="button" data-theme-pref="light" class="seg-btn" data-i18n="theme_light">Hell</button>
-                  <button type="button" data-theme-pref="dark" class="seg-btn" data-i18n="theme_dark">Dunkel</button>
-                  <button type="button" data-theme-pref="system" class="seg-btn" data-i18n="theme_system">System</button>
-                </div>
-              </div>
-
-              <div class="settings-row">
-                <span class="settings-label" data-i18n="font_size_label">Schriftgröße</span>
-                <div class="seg" id="seg-fontsize">
-                  <button type="button" data-fontsize="small" class="seg-btn seg-font-s">A</button>
-                  <button type="button" data-fontsize="normal" class="seg-btn seg-font-m">A</button>
-                  <button type="button" data-fontsize="large" class="seg-btn seg-font-l">A</button>
-                </div>
-              </div>
-
-              <div class="settings-row">
-                <span class="settings-label" data-i18n="density_label">Dichte</span>
-                <div class="seg" id="seg-density">
-                  <button type="button" data-density="comfortable" class="seg-btn" data-i18n="density_comfortable">Komfortabel</button>
-                  <button type="button" data-density="compact" class="seg-btn" data-i18n="density_compact">Kompakt</button>
-                </div>
-              </div>
-
-              <label class="settings-toggle">
-                <input type="checkbox" id="chk-thumbnails">
-                <span data-i18n="thumbnails_label">Thumbnails in der Liste</span>
-              </label>
-              <label class="settings-toggle">
-                <input type="checkbox" id="chk-dedupe">
-                <span data-i18n="dedupe_label">Gleiche Meldung zusammenfassen</span>
-              </label>
-              <label class="settings-toggle">
-                <input type="checkbox" id="chk-favicon-cache">
-                <span data-i18n="favicon_cache_label">Favicons lokal cachen</span>
-              </label>
-
-              <div class="settings-section">
-                <span class="settings-label" data-i18n="mute_label">Ausblenden (ein Wort pro Zeile)</span>
-                <textarea id="input-mute" class="settings-textarea" rows="3" spellcheck="false" placeholder="…" data-i18n-placeholder="mute_placeholder"></textarea>
-                <button id="btn-mute-save" class="btn btn-accent settings-save" type="button" data-i18n="save">Speichern</button>
-              </div>
-
-              <div class="settings-section" id="settings-ai" hidden>
-                <span class="settings-label" data-i18n="ai_label">KI</span>
-                <button id="btn-briefing" class="btn settings-save" type="button" data-i18n="ai_briefing">Tages-Briefing</button>
-              </div>
-
-              <!-- Nur für Angemeldete: hier stehen Bot-Token und KI-Schlüssel. -->
-              <div class="settings-section" id="settings-integrations" hidden>
-                <span class="settings-label" data-i18n="integrations_label">Zugänge einrichten</span>
-
-                <div class="settings-field">
-                  <label class="settings-field-label" for="input-tg-token">
-                    <span data-i18n="tg_token_label">Telegram Bot-Token</span>
-                    <button type="button" class="settings-clear" id="clear-tg-token" hidden data-i18n="clear">entfernen</button>
-                  </label>
-                  <input type="password" id="input-tg-token" class="settings-input" autocomplete="off" spellcheck="false">
-                </div>
-
-                <div class="settings-field">
-                  <label class="settings-field-label" for="input-tg-chat" data-i18n="tg_chat_label">Telegram Chat-ID</label>
-                  <input type="text" id="input-tg-chat" class="settings-input" autocomplete="off" spellcheck="false">
-                </div>
-
-                <div class="settings-field">
-                  <label class="settings-field-label" for="input-ai-key">
-                    <span data-i18n="ai_key_label">KI-Schlüssel</span>
-                    <button type="button" class="settings-clear" id="clear-ai-key" hidden data-i18n="clear">entfernen</button>
-                  </label>
-                  <input type="password" id="input-ai-key" class="settings-input" autocomplete="off" spellcheck="false">
-                </div>
-
-                <div class="settings-field">
-                  <label class="settings-field-label" for="input-ai-model" data-i18n="ai_model_label">KI-Modell</label>
-                  <input type="text" id="input-ai-model" class="settings-input" autocomplete="off" spellcheck="false">
-                </div>
-
-                <div class="settings-field">
-                  <label class="settings-field-label" for="input-briefing-cron" data-i18n="briefing_cron_label">Briefing-Zeitplan</label>
-                  <input type="text" id="input-briefing-cron" class="settings-input" autocomplete="off" spellcheck="false" placeholder="0 7 * * *">
-                </div>
-
-                <div class="settings-field settings-field-row">
-                  <label class="settings-field-label" for="input-briefing-hours" data-i18n="briefing_hours_label">Rückblick (Std.)</label>
-                  <input type="number" id="input-briefing-hours" class="settings-input settings-input-narrow" min="1" max="168">
-                  <label class="settings-field-label" for="select-briefing-lang" data-i18n="briefing_lang_label">Sprache</label>
-                  <select id="select-briefing-lang" class="settings-input settings-input-narrow">
-                    <option value="de">DE</option>
-                    <option value="en">EN</option>
-                    <option value="ru">RU</option>
-                  </select>
-                </div>
-
-                <div class="settings-status" id="integrations-status"></div>
-                <div class="settings-buttons">
-                  <button id="btn-integrations-save" class="btn btn-accent" type="button" data-i18n="save">Speichern</button>
-                  <button id="btn-integrations-test" class="btn" type="button" data-i18n="tg_test">Testnachricht</button>
-                </div>
-              </div>
-
-              <div class="settings-section">
-                <span class="settings-label" data-i18n="data_label">Daten</span>
-                <div class="settings-buttons">
-                  <a class="btn" href="/api/opml" download data-i18n="opml_export">OPML exportieren</a>
-                  <button class="btn" id="btn-opml-import" type="button" data-i18n="opml_import">OPML einlesen</button>
-                  <a class="btn" href="/api/backup" download data-i18n="backup_export">Sicherung speichern</a>
-                  <button class="btn" id="btn-restore" type="button" data-i18n="backup_import">Sicherung einspielen</button>
-                </div>
-              </div>
-
-              <div class="settings-section" id="settings-account">
-                <span class="settings-label" data-i18n="account_label">Zugang</span>
-                <div class="settings-buttons">
-                  <button class="btn" id="btn-login" type="button" hidden data-i18n="login">Anmelden</button>
-                  <button class="btn" id="btn-password" type="button" data-i18n="password_set">Passwort setzen</button>
-                  <button class="btn btn-danger-outline" id="btn-logout" type="button" hidden data-i18n="logout">Abmelden</button>
-                </div>
-              </div>
-
-              <div class="settings-section">
-                <span class="settings-label" data-i18n="shortcuts_label">Tastatur</span>
-                <div class="shortcut-list" id="shortcut-list"></div>
-              </div>
-            </div>
-          </div>
+          <button id="btn-settings" class="tool-btn tool-btn-icon" title="Einstellungen" data-i18n-title="settings_title" aria-expanded="false" aria-haspopup="dialog">
+              <svg class="icon icon-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
         </div>
       </div>
     </div>
   </header>
+
+  <!-- Einstellungen als eigener Dialog: der frühere 260px-Aufklapper platzte
+       aus allen Nähten, seit Zugangsdaten und Zeitplan dazugekommen sind. -->
+  <div class="dialog" id="settings-dialog" hidden>
+    <div class="dialog-backdrop" id="settings-backdrop"></div>
+    <div class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title">
+      <div class="dialog-head">
+        <h2 class="dialog-title" id="settings-dialog-title" data-i18n="settings_title">Einstellungen</h2>
+        <button class="dialog-close" id="btn-settings-close" type="button" data-i18n-title="close" title="Schließen">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <nav class="dialog-nav" id="settings-nav">
+          <button type="button" class="dialog-nav-btn is-active" data-section="appearance" data-i18n="section_appearance">Darstellung</button>
+          <button type="button" class="dialog-nav-btn" data-section="reading" data-i18n="section_reading">Lesen</button>
+          <button type="button" class="dialog-nav-btn" data-section="integrations" data-i18n="section_integrations">Zugänge</button>
+          <button type="button" class="dialog-nav-btn" data-section="data" data-i18n="section_data">Daten</button>
+          <button type="button" class="dialog-nav-btn" data-section="account" data-i18n="section_account">Zugang</button>
+          <button type="button" class="dialog-nav-btn" data-section="keyboard" data-i18n="section_keyboard">Tastatur</button>
+        </nav>
+        <div class="dialog-panes">
+        <section class="dialog-pane is-active" data-pane="appearance">
+          <div class="settings-row">
+            <span class="settings-label" data-i18n="lang_label">Sprache</span>
+            <div class="seg" id="seg-lang">
+              <button type="button" data-lang="de" class="seg-btn">DE</button>
+              <button type="button" data-lang="en" class="seg-btn">EN</button>
+              <button type="button" data-lang="ru" class="seg-btn">RU</button>
+            </div>
+          </div>
+          <div class="settings-row">
+                          <span class="settings-label" data-i18n="theme_label">Design</span>
+                          <div class="seg" id="seg-theme">
+                            <button type="button" data-theme-pref="light" class="seg-btn" data-i18n="theme_light">Hell</button>
+                            <button type="button" data-theme-pref="dark" class="seg-btn" data-i18n="theme_dark">Dunkel</button>
+                            <button type="button" data-theme-pref="system" class="seg-btn" data-i18n="theme_system">System</button>
+                          </div>
+                        </div>
+          <div class="settings-row">
+            <span class="settings-label" data-i18n="font_size_label">Schriftgröße</span>
+                            <div class="seg" id="seg-fontsize">
+                              <button type="button" data-fontsize="small" class="seg-btn seg-font-s">A</button>
+                              <button type="button" data-fontsize="normal" class="seg-btn seg-font-m">A</button>
+                              <button type="button" data-fontsize="large" class="seg-btn seg-font-l">A</button>
+                            </div>
+                          </div>
+          <div class="settings-row">
+            <span class="settings-label" data-i18n="density_label">Dichte</span>
+                            <div class="seg" id="seg-density">
+                              <button type="button" data-density="comfortable" class="seg-btn" data-i18n="density_comfortable">Komfortabel</button>
+                              <button type="button" data-density="compact" class="seg-btn" data-i18n="density_compact">Kompakt</button>
+                            </div>
+                          </div>
+        </section>
+        <section class="dialog-pane" data-pane="reading">
+          <label class="settings-toggle">
+                          <input type="checkbox" id="chk-thumbnails">
+                          <span data-i18n="thumbnails_label">Thumbnails in der Liste</span>
+                        </label>
+                        <label class="settings-toggle">
+                          <input type="checkbox" id="chk-dedupe">
+                          <span data-i18n="dedupe_label">Gleiche Meldung zusammenfassen</span>
+                        </label>
+                        <label class="settings-toggle">
+                          <input type="checkbox" id="chk-favicon-cache">
+                          <span data-i18n="favicon_cache_label">Favicons lokal cachen</span>
+                        </label>
+          <div class="settings-section">
+            <span class="settings-label" data-i18n="mute_label">Ausblenden (ein Wort pro Zeile)</span>
+                            <textarea id="input-mute" class="settings-textarea" rows="3" spellcheck="false" placeholder="…" data-i18n-placeholder="mute_placeholder"></textarea>
+                            <button id="btn-mute-save" class="btn btn-accent settings-save" type="button" data-i18n="save">Speichern</button>
+                          </div>
+        </section>
+        <section class="dialog-pane" data-pane="integrations">
+          <div class="settings-section" id="settings-ai" hidden>
+                          <span class="settings-label" data-i18n="ai_label">KI</span>
+                          <button id="btn-briefing" class="btn settings-save" type="button" data-i18n="ai_briefing">Tages-Briefing</button>
+                        </div>
+          <p class="settings-note" id="integrations-locked" hidden data-i18n="integrations_locked">Zum Einrichten bitte anmelden.</p>
+          <!-- Nur für Angemeldete: hier stehen Bot-Token und KI-Schlüssel. -->
+                        <div class="settings-section" id="settings-integrations" hidden>
+                          <span class="settings-label" data-i18n="integrations_label">Zugänge einrichten</span>
+
+                          <div class="settings-field">
+                            <label class="settings-field-label" for="input-tg-token">
+                              <span data-i18n="tg_token_label">Telegram Bot-Token</span>
+                              <button type="button" class="settings-clear" id="clear-tg-token" hidden data-i18n="clear">entfernen</button>
+                            </label>
+                            <input type="password" id="input-tg-token" class="settings-input" autocomplete="off" spellcheck="false">
+                          </div>
+
+                          <div class="settings-field">
+                            <label class="settings-field-label" for="input-tg-chat" data-i18n="tg_chat_label">Telegram Chat-ID</label>
+                            <input type="text" id="input-tg-chat" class="settings-input" autocomplete="off" spellcheck="false">
+                          </div>
+
+                          <div class="settings-field">
+                            <label class="settings-field-label" for="input-ai-key">
+                              <span data-i18n="ai_key_label">KI-Schlüssel</span>
+                              <button type="button" class="settings-clear" id="clear-ai-key" hidden data-i18n="clear">entfernen</button>
+                            </label>
+                            <input type="password" id="input-ai-key" class="settings-input" autocomplete="off" spellcheck="false">
+                          </div>
+
+                          <div class="settings-field">
+                            <label class="settings-field-label" for="input-ai-model" data-i18n="ai_model_label">KI-Modell</label>
+                            <input type="text" id="input-ai-model" class="settings-input" autocomplete="off" spellcheck="false">
+                          </div>
+
+                          <div class="settings-field">
+                            <label class="settings-field-label" for="input-briefing-cron" data-i18n="briefing_cron_label">Briefing-Zeitplan</label>
+                            <input type="text" id="input-briefing-cron" class="settings-input" autocomplete="off" spellcheck="false" placeholder="0 7 * * *">
+                          </div>
+
+                          <div class="settings-field settings-field-row">
+                            <label class="settings-field-label" for="input-briefing-hours" data-i18n="briefing_hours_label">Rückblick (Std.)</label>
+                            <input type="number" id="input-briefing-hours" class="settings-input settings-input-narrow" min="1" max="168">
+                            <label class="settings-field-label" for="select-briefing-lang" data-i18n="briefing_lang_label">Sprache</label>
+                            <select id="select-briefing-lang" class="settings-input settings-input-narrow">
+                              <option value="de">DE</option>
+                              <option value="en">EN</option>
+                              <option value="ru">RU</option>
+                            </select>
+                          </div>
+
+                          <div class="settings-status" id="integrations-status"></div>
+                          <div class="settings-buttons">
+                            <button id="btn-integrations-save" class="btn btn-accent" type="button" data-i18n="save">Speichern</button>
+                            <button id="btn-integrations-test" class="btn" type="button" data-i18n="tg_test">Testnachricht</button>
+                          </div>
+                        </div>
+        </section>
+        <section class="dialog-pane" data-pane="data">
+          <div class="settings-section">
+            <span class="settings-label" data-i18n="data_label">Daten</span>
+                            <div class="settings-buttons">
+                              <a class="btn" href="/api/opml" download data-i18n="opml_export">OPML exportieren</a>
+                              <button class="btn" id="btn-opml-import" type="button" data-i18n="opml_import">OPML einlesen</button>
+                              <a class="btn" href="/api/backup" download data-i18n="backup_export">Sicherung speichern</a>
+                              <button class="btn" id="btn-restore" type="button" data-i18n="backup_import">Sicherung einspielen</button>
+                            </div>
+                          </div>
+        </section>
+        <section class="dialog-pane" data-pane="account">
+          <div class="settings-section" id="settings-account">
+                          <span class="settings-label" data-i18n="account_label">Zugang</span>
+                          <div class="settings-buttons">
+                            <button class="btn" id="btn-login" type="button" hidden data-i18n="login">Anmelden</button>
+                            <button class="btn" id="btn-password" type="button" data-i18n="password_set">Passwort setzen</button>
+                            <button class="btn btn-danger-outline" id="btn-logout" type="button" hidden data-i18n="logout">Abmelden</button>
+                          </div>
+                        </div>
+        </section>
+        <section class="dialog-pane" data-pane="keyboard">
+          <div class="settings-section">
+            <span class="settings-label" data-i18n="shortcuts_label">Tastatur</span>
+                            <div class="shortcut-list" id="shortcut-list"></div>
+          </div>
+        </section>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div id="edit-bar" class="edit-bar hidden">
     <div class="edit-bar-inner">

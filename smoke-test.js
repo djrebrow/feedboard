@@ -239,28 +239,59 @@ async function run() {
   check('Theme: zurück auf „System" folgt wieder dem System', doc.documentElement.dataset.theme === 'dark' && window.localStorage.getItem('feedboard-theme') === 'system');
 
   // ---- Sprachen: drei Wörterbücher, aus Dateien geladen ----
-  const langLabel = () => doc.querySelector('#btn-lang .lang-label')?.textContent;
+  const waehleSprache = (lang) => {
+    const knopf = doc.querySelector(`#seg-lang [data-lang="${lang}"]`);
+    knopf.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  };
+  const aktiveSprache = () => doc.querySelector('#seg-lang .seg-btn.active')?.dataset.lang;
+  const datenLabel = () => doc.querySelector('[data-i18n="data_label"]').textContent;
 
-  check('Sprache: Start auf Deutsch', doc.documentElement.lang === 'de' && langLabel() === 'DE');
-  const deutscherText = doc.querySelector('[data-i18n="data_label"]').textContent;
+  check('Sprache: Start auf Deutsch', doc.documentElement.lang === 'de' && aktiveSprache() === 'de');
+  const deutscherText = datenLabel();
 
-  doc.getElementById('btn-lang').dispatchEvent(new window.Event('click', { bubbles: true }));
+  waehleSprache('en');
   await new Promise((r) => setTimeout(r, 80));
-  check('Sprache: Knopf schaltet auf Englisch', langLabel() === 'EN');
-  const englischerText = doc.querySelector('[data-i18n="data_label"]').textContent;
-  check('Sprache: Beschriftung wechselt wirklich', englischerText === 'Data' && englischerText !== deutscherText);
+  check('Sprache: Auswahl schaltet auf Englisch', aktiveSprache() === 'en' && doc.documentElement.lang === 'en');
+  check('Sprache: Beschriftung wechselt wirklich', datenLabel() === 'Data' && datenLabel() !== deutscherText);
 
-  doc.getElementById('btn-lang').dispatchEvent(new window.Event('click', { bubbles: true }));
+  waehleSprache('ru');
   await new Promise((r) => setTimeout(r, 80));
-  check('Sprache: weiter auf Russisch', langLabel() === 'RU'
-    && doc.querySelector('[data-i18n="data_label"]').textContent === 'Данные');
+  check('Sprache: Russisch geladen', aktiveSprache() === 'ru' && datenLabel() === 'Данные');
 
-  doc.getElementById('btn-lang').dispatchEvent(new window.Event('click', { bubbles: true }));
+  waehleSprache('de');
   await new Promise((r) => setTimeout(r, 80));
-  check('Sprache: Runde schließt sich zurück auf Deutsch', langLabel() === 'DE'
-    && doc.querySelector('[data-i18n="data_label"]').textContent === deutscherText);
+  check('Sprache: zurück auf Deutsch', aktiveSprache() === 'de' && datenLabel() === deutscherText);
   check('Sprache: Wahl wird gespeichert', window.localStorage.getItem('feedboard-lang') === 'de');
   check('Sprache: lang-Attribut gesetzt', doc.documentElement.lang === 'de');
+
+  // ---- Einstellungsdialog: Bereiche statt eines überladenen Aufklappers ----
+  const dialog = doc.getElementById('settings-dialog');
+  check('Dialog: zunächst geschlossen', dialog.hidden === true);
+
+  doc.getElementById('btn-settings').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 50));
+  check('Dialog: öffnet über das Zahnrad', dialog.hidden === false);
+  check('Dialog: sechs Bereiche', doc.querySelectorAll('#settings-nav .dialog-nav-btn').length === 6);
+  check('Dialog: Darstellung ist offen', doc.querySelector('.dialog-pane.is-active')?.dataset.pane === 'appearance');
+  check('Dialog: nur ein Bereich sichtbar', doc.querySelectorAll('.dialog-pane.is-active').length === 1);
+
+  doc.querySelector('#settings-nav [data-section="data"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 30));
+  check('Dialog: Bereichswechsel auf Daten', doc.querySelector('.dialog-pane.is-active')?.dataset.pane === 'data');
+  check('Dialog: OPML-Knopf im Daten-Bereich', !!doc.querySelector('.dialog-pane[data-pane="data"] #btn-opml-import'));
+
+  doc.getElementById('settings-backdrop').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 30));
+  check('Dialog: Klick auf den Hintergrund schließt', dialog.hidden === true);
+
+  doc.getElementById('btn-settings').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 30));
+  doc.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await new Promise((r) => setTimeout(r, 30));
+  check('Dialog: Escape schließt', dialog.hidden === true);
+
+  check('Werkzeugleiste: Stift und Design sind heraus gewandert',
+    !!doc.querySelector('.toolbar #btn-edit') && !!doc.querySelector('.toolbar #btn-theme'));
 
   console.log(results.join('\n'));
   console.log(errors.length ? `\nJS-Fehler: ${errors.map(String).join(' | ')}` : '\nAlle Smoke-Tests abgeschlossen.');

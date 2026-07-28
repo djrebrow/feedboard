@@ -56,10 +56,12 @@
   const inputCategoryName = document.getElementById('input-category-name');
   const inputCategorySlug = document.getElementById('input-category-slug');
   const toastContainer = document.getElementById('toast-container');
-  const btnLang = document.getElementById('btn-lang');
-  const settingsEl = document.getElementById('settings');
+  const segLang = document.getElementById('seg-lang');
   const btnSettings = document.getElementById('btn-settings');
-  const settingsMenu = document.getElementById('settings-menu');
+  const settingsDialog = document.getElementById('settings-dialog');
+  const settingsBackdrop = document.getElementById('settings-backdrop');
+  const settingsNav = document.getElementById('settings-nav');
+  const btnSettingsClose = document.getElementById('btn-settings-close');
   const logoFileInput = document.getElementById('logo-file-input');
   const articlePreview = document.getElementById('article-preview');
   const btnUnread = document.getElementById('btn-unread');
@@ -88,6 +90,7 @@
   const btnBriefing = document.getElementById('btn-briefing');
   const settingsAi = document.getElementById('settings-ai');
   const settingsIntegrations = document.getElementById('settings-integrations');
+  const integrationsLocked = document.getElementById('integrations-locked');
   const inputTgToken = document.getElementById('input-tg-token');
   const inputTgChat = document.getElementById('input-tg-chat');
   const inputAiKey = document.getElementById('input-ai-key');
@@ -187,8 +190,7 @@
   }
 
   function updateLangButtons() {
-    const label = btnLang.querySelector('.lang-label');
-    if (label) label.textContent = state.lang.toUpperCase();
+    segLang.querySelectorAll('[data-lang]').forEach((b) => b.classList.toggle('active', b.dataset.lang === state.lang));
   }
 
   async function setLang(lang, { speichern = true } = {}) {
@@ -1083,6 +1085,7 @@
     // unangemeldete Zugriffe ohnehin ab — das hier hält sie erst gar nicht hin.
     const darfEinrichten = !locked;
     settingsIntegrations.hidden = !darfEinrichten;
+    integrationsLocked.hidden = darfEinrichten;
     if (darfEinrichten && !integrationsGeladen) loadIntegrations();
     if (!darfEinrichten) integrationsGeladen = false;
   }
@@ -1968,25 +1971,31 @@
     }
     setEditMode(!state.editMode);
   });
-  // Der runde Knopf reicht die Sprachen durch; die feste Auswahl steht im
-  // Einstellungsdialog.
-  btnLang.addEventListener('click', () => {
-    const weiter = LANGS[(LANGS.indexOf(state.lang) + 1) % LANGS.length];
-    setLang(weiter);
+  segLang.addEventListener('click', (event) => {
+    const knopf = event.target.closest('[data-lang]');
+    if (knopf) setLang(knopf.dataset.lang);
   });
 
   // Einstellungs-Zahnrad: auf-/zuklappen
   function setSettingsOpen(open) {
-    settingsEl.classList.toggle('open', open);
-    settingsMenu.hidden = !open;
+    settingsDialog.hidden = !open;
     btnSettings.setAttribute('aria-expanded', open ? 'true' : 'false');
+    // Hintergrund nicht mitscrollen lassen, solange das Fenster offen ist
+    document.body.classList.toggle('dialog-open', open);
+    if (open) settingsDialog.querySelector('.dialog-nav-btn.is-active')?.focus();
   }
-  btnSettings.addEventListener('click', (event) => {
-    event.stopPropagation();
-    setSettingsOpen(settingsMenu.hidden);
-  });
-  document.addEventListener('click', (event) => {
-    if (!settingsEl.contains(event.target)) setSettingsOpen(false);
+
+  function showSettingsSection(name) {
+    settingsNav.querySelectorAll('.dialog-nav-btn').forEach((b) => b.classList.toggle('is-active', b.dataset.section === name));
+    settingsDialog.querySelectorAll('.dialog-pane').forEach((p) => p.classList.toggle('is-active', p.dataset.pane === name));
+  }
+
+  btnSettings.addEventListener('click', () => setSettingsOpen(settingsDialog.hidden));
+  btnSettingsClose.addEventListener('click', () => setSettingsOpen(false));
+  settingsBackdrop.addEventListener('click', () => setSettingsOpen(false));
+  settingsNav.addEventListener('click', (event) => {
+    const knopf = event.target.closest('.dialog-nav-btn');
+    if (knopf) showSettingsSection(knopf.dataset.section);
   });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') setSettingsOpen(false);

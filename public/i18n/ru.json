@@ -218,5 +218,14 @@
   "err_tg_channel_undetected": "Не удалось определить канал Telegram.",
   "err_tg_channel_empty": "Публичный канал или сообщения не найдены.",
   "err_tg_channel_exists": "Этот канал уже добавлен («{name}»).",
-  "err_schedule_invalid_cron": "«{cron}» — недопустимое расписание."
+  "err_schedule_invalid_cron": "«{cron}» — недопустимое расписание.",
+  "section_appearance": "Оформление",
+  "section_reading": "Чтение",
+  "section_integrations": "Подключения",
+  "section_data": "Данные",
+  "section_account": "Доступ",
+  "section_keyboard": "Клавиатура",
+  "lang_label": "Язык",
+  "close": "Закрыть",
+  "integrations_locked": "Для настройки войдите."
 }
