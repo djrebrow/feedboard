@@ -1250,8 +1250,15 @@ body.font-large .search-result .article-title { font-size: 16.5px; }
   .article-actions { margin-left: 0; }
 }
 
-/* Tastaturauswahl (j/k) */
-.article.selected { background: var(--accent-soft); border-radius: 6px; }
+/* Tastaturauswahl (j/k) — die Tönung allein bleibt auf jedem Hintergrund
+   unter 1,2:1 und ist damit praktisch unsichtbar; den Kontrast trägt der
+   Balken in voller Akzentfarbe. Als inset-Schatten, damit die Zeile beim
+   Wandern des Cursors nicht springt (.article hat 16px Innenabstand). */
+.article.selected {
+  background: var(--accent-soft);
+  border-radius: 6px;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
 .search-result.selected { border-color: var(--accent); }
 
 /* Pausierte Feeds */
