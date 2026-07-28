@@ -1333,6 +1333,12 @@ body.font-large .search-result .article-title { font-size: 16.5px; }
 /* ---- Zugänge einrichten (Telegram, KI, Briefing) ---- */
 .settings-field { display: flex; flex-direction: column; gap: 4px; }
 
+/* Zwei zusammengehörende Felder nebeneinander (Anbieter und Modell). Unten
+   ausgerichtet, damit die Auswahlfelder auf einer Linie stehen, auch wenn eine
+   Beschriftung umbricht — auf Russisch tut sie das auf dem Telefon. */
+.settings-pair { display: flex; align-items: flex-end; gap: 10px; }
+.settings-pair > .settings-field { flex: 1 1 0; min-width: 0; }
+
 .settings-field-label {
   display: flex;
   align-items: baseline;

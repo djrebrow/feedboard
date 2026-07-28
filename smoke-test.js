@@ -374,6 +374,8 @@ async function run() {
   const anbieterFeld = doc.getElementById('select-ai-provider');
   check('KI: Anbieterliste kommt vom Server', anbieterFeld.options.length === 3 && anbieterFeld.value === 'anthropic');
   check('KI: Modell steht in der Auswahl', doc.getElementById('select-ai-model').value === 'claude-opus-5');
+  check('KI: Anbieter und Modell stehen nebeneinander',
+    doc.querySelector('.settings-pair #select-ai-provider') && doc.querySelector('.settings-pair #select-ai-model'));
   check('KI: Basis-URL nur beim eigenen Endpunkt', doc.getElementById('ai-base-field').hidden === true);
   anbieterFeld.value = 'custom';
   anbieterFeld.dispatchEvent(new window.Event('change', { bubbles: true }));

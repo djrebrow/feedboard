@@ -156,10 +156,27 @@
                             <input type="text" id="input-tg-chat" class="settings-input" autocomplete="off" spellcheck="false">
                           </div>
 
-                          <div class="settings-field">
-                            <label class="settings-field-label" for="select-ai-provider" data-i18n="ai_provider_label">KI-Anbieter</label>
-                            <select id="select-ai-provider" class="settings-input"></select>
+                          <!-- Anbieter und Modell gehören zusammen: welches Modell
+                               zur Wahl steht, hängt am Anbieter daneben. -->
+                          <div class="settings-pair">
+                            <div class="settings-field">
+                              <label class="settings-field-label" for="select-ai-provider" data-i18n="ai_provider_label">KI-Anbieter</label>
+                              <select id="select-ai-provider" class="settings-input"></select>
+                            </div>
+
+                            <div class="settings-field">
+                              <label class="settings-field-label" for="select-ai-model">
+                                <span data-i18n="ai_model_label">KI-Modell</span>
+                                <button type="button" class="settings-clear" id="btn-ai-models" data-i18n="ai_models_load">Liste laden</button>
+                              </label>
+                              <select id="select-ai-model" class="settings-input"></select>
+                            </div>
                           </div>
+
+                          <!-- Rückfallebene: ohne gespeicherten Schlüssel oder bei einem
+                               eigenen Endpunkt lässt sich keine Liste holen. Steht über die
+                               ganze Breite, weil Modellnamen lang werden können. -->
+                          <input type="text" id="input-ai-model" class="settings-input" autocomplete="off" spellcheck="false" hidden data-i18n-placeholder="ai_model_placeholder" placeholder="Modellname">
 
                           <!-- Nur bei „Eigene Basis-URL": Ollama, LM Studio, vLLM im eigenen Netz. -->
                           <div class="settings-field" id="ai-base-field" hidden>
@@ -173,17 +190,6 @@
                               <button type="button" class="settings-clear" id="clear-ai-key" hidden data-i18n="clear">entfernen</button>
                             </label>
                             <input type="password" id="input-ai-key" class="settings-input" autocomplete="off" spellcheck="false">
-                          </div>
-
-                          <div class="settings-field">
-                            <label class="settings-field-label" for="select-ai-model">
-                              <span data-i18n="ai_model_label">KI-Modell</span>
-                              <button type="button" class="settings-clear" id="btn-ai-models" data-i18n="ai_models_load">Liste laden</button>
-                            </label>
-                            <select id="select-ai-model" class="settings-input"></select>
-                            <!-- Rückfallebene: ohne gespeicherten Schlüssel oder bei einem
-                                 eigenen Endpunkt lässt sich keine Liste holen. -->
-                            <input type="text" id="input-ai-model" class="settings-input" autocomplete="off" spellcheck="false" hidden data-i18n-placeholder="ai_model_placeholder" placeholder="Modellname">
                           </div>
 
                           <!-- Uhrzeit und Wochentage gehören zusammen und stehen
