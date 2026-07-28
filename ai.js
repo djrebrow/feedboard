@@ -7,6 +7,7 @@
 const { Anthropic } = require('@anthropic-ai/sdk');
 
 const config = require('./config');
+const { fehler } = require('./errors');
 
 // Der Schlüssel ist im Menü änderbar. Der Client wird deshalb erst bei Bedarf
 // gebaut und nur dann neu, wenn sich der Schlüssel tatsächlich geändert hat —
@@ -28,7 +29,7 @@ function isEnabled() {
 
 function requireClient() {
   const vorhanden = client();
-  if (!vorhanden) throw new Error('Die KI-Funktionen sind nicht eingerichtet — Schlüssel fehlt (Zahnrad-Menü).');
+  if (!vorhanden) throw fehler('ai_not_configured', 'Die KI-Funktionen sind nicht eingerichtet — Schlüssel fehlt (Zahnrad-Menü).');
   return vorhanden;
 }
 
@@ -54,22 +55,22 @@ async function ask({ system, prompt, maxTokens = 2048, effort = 'low' }) {
   } catch (error) {
     // Typisierte SDK-Fehler in verständliche Meldungen übersetzen
     if (error instanceof Anthropic.AuthenticationError) {
-      throw new Error('Der Claude-API-Schlüssel wurde abgelehnt.');
+      throw fehler('ai_key_rejected', 'Der Claude-API-Schlüssel wurde abgelehnt.');
     }
     if (error instanceof Anthropic.RateLimitError) {
-      throw new Error('Zu viele Anfragen an die Claude API — bitte kurz warten.');
+      throw fehler('ai_rate_limited', 'Zu viele Anfragen an die Claude API — bitte kurz warten.');
     }
     if (error instanceof Anthropic.APIConnectionError) {
-      throw new Error('Die Claude API ist nicht erreichbar.');
+      throw fehler('ai_unreachable', 'Die Claude API ist nicht erreichbar.');
     }
     if (error instanceof Anthropic.APIError) {
-      throw new Error(`Claude API: ${error.message}`);
+      throw fehler('ai_error', `Claude API: ${error.message}`, { msg: error.message });
     }
     throw error;
   }
 
   if (response.stop_reason === 'refusal') {
-    throw new Error('Die KI hat die Bearbeitung dieses Artikels abgelehnt.');
+    throw fehler('ai_refused', 'Die KI hat die Bearbeitung dieses Artikels abgelehnt.');
   }
 
   const text = response.content
@@ -78,7 +79,7 @@ async function ask({ system, prompt, maxTokens = 2048, effort = 'low' }) {
     .join('\n')
     .trim();
 
-  if (!text) throw new Error('Die KI hat keine Antwort geliefert.');
+  if (!text) throw fehler('ai_no_answer', 'Die KI hat keine Antwort geliefert.');
   return text;
 }
 
@@ -140,7 +141,7 @@ Höchstens sechs Themen, das Wichtigste zuerst. Kein Vorwort, kein Schlusswort.
 Schreibe auf {{LANG}}.`;
 
 async function briefing(articles, lang = 'de') {
-  if (!articles.length) throw new Error('Es gibt keine ungelesenen Artikel für ein Briefing.');
+  if (!articles.length) throw fehler('briefing_no_articles', 'Es gibt keine ungelesenen Artikel für ein Briefing.');
 
   const lines = articles.slice(0, 120).map((a) => {
     const summary = (a.summary || '').replace(/\s+/g, ' ').slice(0, 220);

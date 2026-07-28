@@ -4,6 +4,7 @@
 const Parser = require('rss-parser');
 const store = require('./db');
 const telegram = require('./telegram');
+const { fehler } = require('./errors');
 
 const FETCH_TIMEOUT_MS = 15000;
 const SUMMARY_MAX_CHARS = 400;
@@ -194,7 +195,7 @@ async function fetchTelegramFeed(feed) {
       telegram.channelFromWebviewUrl(feed.rss_url) ||
       telegram.detectTelegramChannel(feed.site_url) ||
       telegram.detectTelegramChannel(feed.rss_url);
-    if (!channel) throw new Error('Telegram-Kanal konnte nicht ermittelt werden.');
+    if (!channel) throw fehler('tg_channel_undetected', 'Telegram-Kanal konnte nicht ermittelt werden.');
 
     const data = await telegram.fetchTelegramChannel(channel);
     saveTelegramMessages(feed.id, data.messages);
@@ -285,7 +286,7 @@ function isRefreshing() {
 
 function buildUrlCandidates(input) {
   const raw = String(input || '').trim();
-  if (!raw) throw new Error('Bitte eine URL angeben.');
+  if (!raw) throw fehler('url_required', 'Bitte eine URL angeben.');
   // Mit angegebenem Schema: genau diese URL verwenden (wirft bei ungültiger URL)
   if (/^https?:\/\//i.test(raw)) return [new URL(raw).toString()];
   // Ohne Schema: erst https versuchen, dann http (z. B. für Dienste im Heimnetz)
@@ -371,7 +372,7 @@ async function discoverFeed(inputUrl) {
     const found = await discoverFeedAt(url);
     if (found) return found;
   }
-  throw new Error('Unter dieser Adresse wurde kein RSS-/Atom-Feed gefunden.');
+  throw fehler('feed_not_discovered', 'Unter dieser Adresse wurde kein RSS-/Atom-Feed gefunden.');
 }
 
 // ---------------------------------------------------------------------------
@@ -381,7 +382,7 @@ async function discoverFeed(inputUrl) {
 async function addTelegramFeed({ categoryId, channel, name }) {
   const data = await telegram.fetchTelegramChannel(channel);
   if (!data.messages.length) {
-    throw new Error('Kein öffentlicher Telegram-Kanal oder keine Nachrichten gefunden.');
+    throw fehler('tg_channel_empty', 'Kein öffentlicher Telegram-Kanal oder keine Nachrichten gefunden.');
   }
 
   const rssUrl = telegram.channelWebviewUrl(channel);
@@ -389,7 +390,7 @@ async function addTelegramFeed({ categoryId, channel, name }) {
   const feedName = (name && String(name).trim()) || data.title || `@${channel}`;
 
   const existing = store.getFeedByUrl(rssUrl);
-  if (existing) throw new Error(`Dieser Kanal ist bereits vorhanden („${existing.name}“).`);
+  if (existing) throw fehler('tg_channel_exists', `Dieser Kanal ist bereits vorhanden („${existing.name}“).`, { name: existing.name });
 
   const feed = store.createFeed({ categoryId, name: feedName, rssUrl, siteUrl, type: 'telegram' });
   saveTelegramMessages(feed.id, data.messages);
@@ -400,7 +401,7 @@ async function addTelegramFeed({ categoryId, channel, name }) {
 
 async function addFeed({ categoryId, url, name }) {
   const category = store.getCategory(categoryId);
-  if (!category) throw new Error('Rubrik nicht gefunden.');
+  if (!category) throw fehler('category_not_found', 'Rubrik nicht gefunden.');
 
   // Telegram-Kanal? (t.me/kanal, @kanal, …) — dann keine RSS-Suche
   const channel = telegram.detectTelegramChannel(url);
@@ -422,7 +423,7 @@ async function addFeed({ categoryId, url, name }) {
   if (!siteUrl) siteUrl = new URL(rssUrl).origin;
 
   const existing = store.getFeedByUrl(rssUrl) || store.findSimilarFeed(parsedTitle, siteUrl);
-  if (existing) throw new Error(`Dieser Feed ist bereits vorhanden („${existing.name}“).`);
+  if (existing) throw fehler('feed_exists', `Dieser Feed ist bereits vorhanden („${existing.name}“).`, { name: existing.name });
 
   const feed = store.createFeed({ categoryId, name: feedName, rssUrl, siteUrl });
 

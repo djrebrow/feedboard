@@ -11,6 +11,7 @@
 const crypto = require('node:crypto');
 
 const store = require('./db');
+const { fehler } = require('./errors');
 
 const ENV_PASSWORD = process.env.FEEDBOARD_PASSWORD || '';
 const COOKIE_NAME = 'feedboard_session';
@@ -149,17 +150,17 @@ function noteFailure(ip) {
 function checkPassword(req, password) {
   const ip = req.ip || 'unbekannt';
   if (tooManyAttempts(ip)) {
-    throw new Error('Zu viele Fehlversuche. Bitte in 15 Minuten erneut versuchen.');
+    throw fehler('too_many_attempts', 'Zu viele Fehlversuche. Bitte in 15 Minuten erneut versuchen.', { minutes: 15 });
   }
   if (!password || !verifyPassword(password, store.getSetting('password_hash'))) {
     noteFailure(ip);
-    throw new Error('Falsches Passwort.');
+    throw fehler('wrong_password', 'Falsches Passwort.');
   }
   attempts.delete(ip);
 }
 
 function login(req, res, password) {
-  if (!isEnabled()) throw new Error('Es ist kein Passwort eingerichtet.');
+  if (!isEnabled()) throw fehler('no_password_set', 'Es ist kein Passwort eingerichtet.');
   checkPassword(req, password);
   setSessionCookie(req, res);
 }
@@ -173,7 +174,7 @@ function logout(res) {
 function setPassword(req, res, { current, next }) {
   const password = String(next || '');
   if (password.length < MIN_PASSWORD_LENGTH) {
-    throw new Error(`Das Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen haben.`);
+    throw fehler('password_too_short', `Das Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen haben.`, { min: MIN_PASSWORD_LENGTH });
   }
   if (isEnabled()) checkPassword(req, current);
 
@@ -190,7 +191,7 @@ function setPassword(req, res, { current, next }) {
 // Vor jede Route hängen, die etwas verändert oder etwas kostet.
 function protect(req, res, next) {
   if (isLoggedIn(req)) return next();
-  res.status(401).json({ error: 'Zum Bearbeiten bitte anmelden.', login_required: true });
+  res.status(401).json({ error: 'Zum Bearbeiten bitte anmelden.', code: 'login_required_msg', login_required: true });
 }
 
 module.exports = {

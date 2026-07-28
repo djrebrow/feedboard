@@ -3,6 +3,7 @@
 'use strict';
 
 const { load } = require('cheerio');
+const { fehler } = require('./errors');
 
 const WEBVIEW_PREFIX = 'https://t.me/s/';
 const REQUEST_TIMEOUT_MS = 15000;
@@ -81,7 +82,7 @@ async function fetchTelegramChannel(channel) {
     redirect: 'follow',
   });
   if (!response.ok) {
-    throw new Error(`Telegram-Kanal nicht erreichbar (HTTP ${response.status}).`);
+    throw fehler('tg_channel_unreachable', `Telegram-Kanal nicht erreichbar (HTTP ${response.status}).`, { status: response.status });
   }
   const html = await response.text();
   const $ = load(html);
@@ -154,7 +155,7 @@ async function sendOne(text, { preview = true } = {}) {
   const data = await response.json().catch(() => null);
   if (!response.ok || !data || data.ok !== true) {
     const reason = data && data.description ? data.description : `HTTP ${response.status}`;
-    throw new Error(`Telegram hat die Nachricht abgelehnt: ${reason}`);
+    throw fehler('tg_rejected', `Telegram hat die Nachricht abgelehnt: ${reason}`, { reason });
   }
   return { ok: true };
 }
@@ -185,17 +186,17 @@ function splitMessage(text, limit = MAX_MESSAGE_CHARS) {
 
 async function sendText(text, { preview = false } = {}) {
   if (!canShare()) {
-    throw new Error('Telegram ist nicht eingerichtet — Bot-Token und Chat-ID fehlen (Zahnrad-Menü).');
+    throw fehler('telegram_not_configured', 'Telegram ist nicht eingerichtet — Bot-Token und Chat-ID fehlen (Zahnrad-Menü).');
   }
   const stuecke = splitMessage(text);
-  if (!stuecke.length) throw new Error('Es gibt nichts zu senden.');
+  if (!stuecke.length) throw fehler('tg_nothing_to_send', 'Es gibt nichts zu senden.');
   for (const stueck of stuecke) await sendOne(stueck, { preview });
   return { ok: true, parts: stuecke.length };
 }
 
 async function shareArticle({ title, link, summary, feedName }) {
   if (!canShare()) {
-    throw new Error('Telegram ist nicht eingerichtet — Bot-Token und Chat-ID fehlen (Zahnrad-Menü).');
+    throw fehler('telegram_not_configured', 'Telegram ist nicht eingerichtet — Bot-Token und Chat-ID fehlen (Zahnrad-Menü).');
   }
 
   const parts = [String(title || '').trim()];

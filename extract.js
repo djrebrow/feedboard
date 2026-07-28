@@ -7,6 +7,7 @@
 'use strict';
 
 const { load } = require('cheerio');
+const { fehler } = require('./errors');
 
 const REQUEST_TIMEOUT_MS = 20000;
 const MAX_HTML_BYTES = 3_000_000;
@@ -136,7 +137,7 @@ function extractFromHtml(html, baseUrl) {
 async function fetchArticleText(url) {
   const target = new URL(String(url));
   if (target.protocol !== 'http:' && target.protocol !== 'https:') {
-    throw new Error('Nur http- und https-Adressen werden unterstützt.');
+    throw fehler('url_scheme_unsupported', 'Nur http- und https-Adressen werden unterstützt.');
   }
 
   const response = await fetch(target.toString(), {
@@ -144,19 +145,19 @@ async function fetchArticleText(url) {
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     redirect: 'follow',
   });
-  if (!response.ok) throw new Error(`Seite nicht erreichbar (HTTP ${response.status}).`);
+  if (!response.ok) throw fehler('page_unreachable', `Seite nicht erreichbar (HTTP ${response.status}).`, { status: response.status });
 
   const type = response.headers.get('content-type') || '';
   if (type && !/text\/html|application\/xhtml/i.test(type)) {
-    throw new Error('Die Adresse liefert kein HTML.');
+    throw fehler('not_html', 'Die Adresse liefert kein HTML.');
   }
 
   const buffer = await response.arrayBuffer();
-  if (buffer.byteLength > MAX_HTML_BYTES) throw new Error('Die Seite ist zu groß.');
+  if (buffer.byteLength > MAX_HTML_BYTES) throw fehler('page_too_large', 'Die Seite ist zu groß.');
   const html = new TextDecoder('utf-8').decode(buffer);
 
   const result = extractFromHtml(html, response.url || target.toString());
-  if (!result) throw new Error('Auf dieser Seite wurde kein Artikeltext gefunden.');
+  if (!result) throw fehler('no_article_text', 'Auf dieser Seite wurde kein Artikeltext gefunden.');
   return result;
 }
 

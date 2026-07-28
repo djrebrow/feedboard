@@ -14,6 +14,7 @@ const auth = require('./auth');
 const extract = require('./extract');
 const ai = require('./ai');
 const telegram = require('./telegram');
+const { fehler, toResponse } = require('./errors');
 
 const PORT = Number(process.env.PORT) || 8321;
 const FETCH_INTERVAL_MINUTES = clampInterval(process.env.FETCH_INTERVAL_MINUTES, 30);
@@ -54,7 +55,7 @@ app.post('/api/login', (req, res) => {
     auth.login(req, res, String(req.body?.password || ''));
     res.json({ ok: true });
   } catch (error) {
-    res.status(401).json({ error: error.message });
+    res.status(401).json(toResponse(error));
   }
 });
 
@@ -73,7 +74,7 @@ app.post('/api/password', (req, res) => {
     });
     res.json({ ok: true });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(400).json(toResponse(error));
   }
 });
 
@@ -125,21 +126,22 @@ app.use(express.static(PUBLIC_DIR));
 function asyncHandler(handler) {
   return (req, res) => {
     Promise.resolve(handler(req, res)).catch((error) => {
-      const message = error && error.message ? error.message : 'Unbekannter Fehler.';
-      res.status(400).json({ error: message });
+      // Der deutsche Text bleibt drin (Rückfallebene und Server-Logs), der
+      // Schlüssel erlaubt der Oberfläche eine übersetzte Meldung.
+      res.status(400).json(toResponse(error));
     });
   };
 }
 
 function parseId(value) {
   const id = Number(value);
-  if (!Number.isInteger(id) || id <= 0) throw new Error('Ungültige ID.');
+  if (!Number.isInteger(id) || id <= 0) throw fehler('invalid_id', 'Ungültige ID.');
   return id;
 }
 
 function requireIdArray(value) {
   if (!Array.isArray(value) || value.length === 0 || !value.every((v) => Number.isInteger(v) && v > 0)) {
-    throw new Error('Es wird eine Liste von IDs erwartet.');
+    throw fehler('ids_expected', 'Es wird eine Liste von IDs erwartet.');
   }
   return value;
 }
@@ -185,44 +187,44 @@ app.get('/api/stats', (req, res) => {
 
 app.post('/api/categories', auth.protect, asyncHandler(async (req, res) => {
   const name = String(req.body?.name || '').trim();
-  if (!name) throw new Error('Bitte einen Namen für die Rubrik angeben.');
-  if (name.length > 80) throw new Error('Der Rubrikname ist zu lang (max. 80 Zeichen).');
+  if (!name) throw fehler('category_name_required', 'Bitte einen Namen für die Rubrik angeben.');
+  if (name.length > 80) throw fehler('category_name_too_long', 'Der Rubrikname ist zu lang (max. 80 Zeichen).', { max: 80 });
   const slug = req.body?.slug != null ? String(req.body.slug).trim() : '';
   res.status(201).json(store.createCategory(name, slug));
 }));
 
 app.patch('/api/categories/:id', auth.protect, asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
-  if (!store.getCategory(id)) throw new Error('Rubrik nicht gefunden.');
+  if (!store.getCategory(id)) throw fehler('category_not_found', 'Rubrik nicht gefunden.');
   const name = String(req.body?.name || '').trim();
-  if (!name) throw new Error('Bitte einen Namen für die Rubrik angeben.');
-  if (name.length > 80) throw new Error('Der Rubrikname ist zu lang (max. 80 Zeichen).');
+  if (!name) throw fehler('category_name_required', 'Bitte einen Namen für die Rubrik angeben.');
+  if (name.length > 80) throw fehler('category_name_too_long', 'Der Rubrikname ist zu lang (max. 80 Zeichen).', { max: 80 });
   const slug = req.body?.slug != null ? String(req.body.slug).trim() : '';
   res.json(store.renameCategory(id, name, slug));
 }));
 
 app.put('/api/categories/:id/logo', auth.protect, asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
-  if (!store.getCategory(id)) throw new Error('Rubrik nicht gefunden.');
+  if (!store.getCategory(id)) throw fehler('category_not_found', 'Rubrik nicht gefunden.');
   const logo = String(req.body?.logo || '');
   if (!/^data:image\/(png|jpeg|webp|gif|svg\+xml);/i.test(logo)) {
-    throw new Error('Ungültiges Bildformat.');
+    throw fehler('image_format_invalid', 'Ungültiges Bildformat.');
   }
   if (logo.length > LOGO_MAX_LENGTH) {
-    throw new Error('Das Bild ist zu groß.');
+    throw fehler('image_too_large', 'Das Bild ist zu groß.');
   }
   res.json(store.setCategoryLogo(id, logo));
 }));
 
 app.delete('/api/categories/:id/logo', auth.protect, asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
-  if (!store.getCategory(id)) throw new Error('Rubrik nicht gefunden.');
+  if (!store.getCategory(id)) throw fehler('category_not_found', 'Rubrik nicht gefunden.');
   res.json(store.setCategoryLogo(id, null));
 }));
 
 app.delete('/api/categories/:id', auth.protect, asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
-  if (!store.getCategory(id)) throw new Error('Rubrik nicht gefunden.');
+  if (!store.getCategory(id)) throw fehler('category_not_found', 'Rubrik nicht gefunden.');
   store.deleteCategory(id);
   res.json({ ok: true });
 }));
@@ -240,14 +242,14 @@ app.post('/api/feeds', auth.protect, asyncHandler(async (req, res) => {
   const categoryId = parseId(req.body?.category_id);
   const url = String(req.body?.url || '').trim();
   const name = req.body?.name ? String(req.body.name).trim() : null;
-  if (!url) throw new Error('Bitte eine Feed- oder Website-URL angeben.');
+  if (!url) throw fehler('feed_url_required', 'Bitte eine Feed- oder Website-URL angeben.');
   const feed = await fetcher.addFeed({ categoryId, url, name });
   res.status(201).json(feed);
 }));
 
 app.patch('/api/feeds/:id', auth.protect, asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
-  if (!store.getFeed(id)) throw new Error('Feed nicht gefunden.');
+  if (!store.getFeed(id)) throw fehler('feed_not_found', 'Feed nicht gefunden.');
 
   // Pausieren/Fortsetzen kann allein oder zusammen mit dem Namen kommen
   if (req.body?.enabled !== undefined) {
@@ -255,8 +257,8 @@ app.patch('/api/feeds/:id', auth.protect, asyncHandler(async (req, res) => {
   }
   if (req.body?.name !== undefined) {
     const name = String(req.body.name).trim();
-    if (!name) throw new Error('Bitte einen Namen für den Feed angeben.');
-    if (name.length > 120) throw new Error('Der Feed-Name ist zu lang (max. 120 Zeichen).');
+    if (!name) throw fehler('feed_name_required', 'Bitte einen Namen für den Feed angeben.');
+    if (name.length > 120) throw fehler('feed_name_too_long', 'Der Feed-Name ist zu lang (max. 120 Zeichen).', { max: 120 });
     store.renameFeed(id, name);
   }
   res.json(store.getFeed(id));
@@ -264,7 +266,7 @@ app.patch('/api/feeds/:id', auth.protect, asyncHandler(async (req, res) => {
 
 app.delete('/api/feeds/:id', auth.protect, asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
-  if (!store.getFeed(id)) throw new Error('Feed nicht gefunden.');
+  if (!store.getFeed(id)) throw fehler('feed_not_found', 'Feed nicht gefunden.');
   store.deleteFeed(id);
   res.json({ ok: true });
 }));
@@ -286,7 +288,7 @@ app.get('/api/opml', (req, res) => {
 
 app.post('/api/opml', auth.protect, asyncHandler(async (req, res) => {
   const xml = String(req.body?.xml || '');
-  if (!xml.trim()) throw new Error('Bitte eine OPML-Datei auswählen.');
+  if (!xml.trim()) throw fehler('opml_file_required', 'Bitte eine OPML-Datei auswählen.');
   const result = opml.importOpml(xml);
   // Die neuen Feeds im Hintergrund füllen — der Import selbst bleibt schnell
   if (result.feeds > 0) setTimeout(() => fetcher.refreshAllFeeds().catch(() => {}), 100);
@@ -305,14 +307,14 @@ app.post('/api/articles/:id/read', asyncHandler(async (req, res) => {
 
 app.post('/api/feeds/:id/read', asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
-  if (!store.getFeed(id)) throw new Error('Feed nicht gefunden.');
+  if (!store.getFeed(id)) throw fehler('feed_not_found', 'Feed nicht gefunden.');
   store.setFeedRead(id, req.body?.read !== false);
   res.json({ ok: true });
 }));
 
 app.post('/api/categories/:id/read', asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
-  if (!store.getCategory(id)) throw new Error('Rubrik nicht gefunden.');
+  if (!store.getCategory(id)) throw fehler('category_not_found', 'Rubrik nicht gefunden.');
   store.setCategoryRead(id, req.body?.read !== false);
   res.json({ ok: true });
 }));
@@ -337,7 +339,7 @@ app.get('/api/saved', asyncHandler(async (req, res) => {
 
 function requireArticle(id) {
   const article = store.getArticleWithFeed(id);
-  if (!article) throw new Error('Artikel nicht gefunden.');
+  if (!article) throw fehler('article_not_found', 'Artikel nicht gefunden.');
   return article;
 }
 
@@ -353,7 +355,7 @@ app.post('/api/articles/:id/content', asyncHandler(async (req, res) => {
   if (article.content && req.body?.force !== true) {
     return res.json({ content: article.content, cached: true });
   }
-  if (!article.link) throw new Error('Zu diesem Artikel gibt es keine Adresse.');
+  if (!article.link) throw fehler('article_no_link', 'Zu diesem Artikel gibt es keine Adresse.');
 
   const result = await extract.fetchArticleText(article.link);
   store.setArticleContent(id, result.text);
@@ -365,7 +367,7 @@ app.post('/api/articles/:id/content', asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 
 function requireAi() {
-  if (!ai.isEnabled()) throw new Error('Die KI-Funktionen sind nicht eingerichtet.');
+  if (!ai.isEnabled()) throw fehler('ai_not_configured', 'Die KI-Funktionen sind nicht eingerichtet.');
 }
 
 app.post('/api/articles/:id/ai/summary', auth.protect, asyncHandler(async (req, res) => {
@@ -484,7 +486,9 @@ app.put('/api/settings/integrations', auth.protect, asyncHandler(async (req, res
 
   const plan = eingabe.briefing_cron;
   if (typeof plan === 'string' && plan.trim() && !cron.validate(plan.trim())) {
-    return res.status(400).json({ error: `"${plan.trim()}" ist kein gültiger Zeitplan. Beispiel: 0 7 * * *` });
+    return res.status(400).json(toResponse(
+      fehler('schedule_invalid_cron', `"${plan.trim()}" ist kein gültiger Zeitplan. Beispiel: 0 7 * * *`, { cron: plan.trim() })
+    ));
   }
 
   config.setMany(eingabe);
@@ -496,7 +500,9 @@ app.put('/api/settings/integrations', auth.protect, asyncHandler(async (req, res
 // Probenachricht: ohne sie faellt ein Tippfehler erst beim naechsten Briefing auf.
 app.post('/api/settings/integrations/test-telegram', auth.protect, asyncHandler(async (req, res) => {
   if (!telegram.canShare()) {
-    return res.status(400).json({ error: 'Telegram ist nicht eingerichtet — Bot-Token und Chat-ID fehlen.' });
+    return res.status(400).json(toResponse(
+      fehler('telegram_not_configured', 'Telegram ist nicht eingerichtet — Bot-Token und Chat-ID fehlen.')
+    ));
   }
   await telegram.sendText('✅ Feedboard: Testnachricht. Die Verbindung steht.');
   res.json({ ok: true });
@@ -511,13 +517,13 @@ fs.mkdirSync(FAVICON_DIR, { recursive: true });
 
 app.get('/api/favicon', asyncHandler(async (req, res) => {
   const host = String(req.query?.host || '').toLowerCase().replace(/[^a-z0-9.-]/g, '');
-  if (!host || host.length > 100 || host.includes('..')) throw new Error('Ungültiger Host.');
+  if (!host || host.length > 100 || host.includes('..')) throw fehler('invalid_host', 'Ungültiger Host.');
   const file = path.join(FAVICON_DIR, `${host}.png`);
 
   if (!fs.existsSync(file)) {
     const source = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`;
     const response = await fetch(source, { signal: AbortSignal.timeout(10000) });
-    if (!response.ok) throw new Error('Favicon nicht gefunden.');
+    if (!response.ok) throw fehler('favicon_not_found', 'Favicon nicht gefunden.');
     fs.writeFileSync(file, Buffer.from(await response.arrayBuffer()));
   }
   res.set('Cache-Control', 'public, max-age=604800');
@@ -536,9 +542,9 @@ app.get('/api/search', asyncHandler(async (req, res) => {
 app.post('/api/feeds/:id/refresh', asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
   const feed = store.getFeed(id);
-  if (!feed) throw new Error('Feed nicht gefunden.');
+  if (!feed) throw fehler('feed_not_found', 'Feed nicht gefunden.');
   const result = await fetcher.fetchFeed(feed);
-  if (!result.ok) throw new Error(`Aktualisierung fehlgeschlagen: ${result.error}`);
+  if (!result.ok) throw fehler('refresh_failed', `Aktualisierung fehlgeschlagen: ${result.error}`, { msg: result.error });
   res.json({ ok: true, items: result.items });
 }));
 

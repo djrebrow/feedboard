@@ -5,6 +5,7 @@ const { load } = require('cheerio');
 
 const store = require('./db');
 const telegram = require('./telegram');
+const { fehler } = require('./errors');
 
 // ---------------------------------------------------------------------------
 // Export
@@ -72,11 +73,11 @@ const UNSORTED = 'Importiert';
 // Gruppe (auch über mehrere Ebenen) wird zur Rubrik.
 function parseOpml(xml) {
   const raw = String(xml || '').trim();
-  if (!raw) throw new Error('Die OPML-Datei ist leer.');
+  if (!raw) throw fehler('opml_empty', 'Die OPML-Datei ist leer.');
 
   const $ = load(raw, { xmlMode: true });
   if (!$('opml').length && !$('body outline').length) {
-    throw new Error('Das ist keine gültige OPML-Datei.');
+    throw fehler('opml_invalid', 'Das ist keine gültige OPML-Datei.');
   }
 
   const entries = [];
@@ -120,7 +121,7 @@ function isHttpUrl(value) {
 // fehlerhafte Adressen wie gewohnt mit ⚠.
 function importOpml(xml) {
   const entries = parseOpml(xml);
-  if (!entries.length) throw new Error('In der Datei wurden keine Feeds gefunden.');
+  if (!entries.length) throw fehler('opml_no_feeds', 'In der Datei wurden keine Feeds gefunden.');
 
   const categoriesByName = new Map(
     store.getCategories().map((c) => [c.name.toLowerCase(), c])

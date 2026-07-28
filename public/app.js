@@ -140,6 +140,18 @@
     return LOCALES[state.lang] || LOCALES[FALLBACK_LANG];
   }
 
+  // Fehlermeldungen des Servers: er schickt einen Schlüssel mit, den wir
+  // übersetzen. Der mitgelieferte deutsche Text ist die Rückfallebene — für
+  // Schlüssel, die wir noch nicht kennen, und für ältere Serverstände.
+  function fehlerText(data, status) {
+    if (data && data.code) {
+      const dict = dictionaries[state.lang] || {};
+      const schluessel = `err_${data.code}`;
+      if (dict[schluessel] !== undefined) return t(schluessel, data.params || undefined);
+    }
+    return (data && data.error) || `${t('error_generic')} ${status}`;
+  }
+
   const TRANSLIT = {
     'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss',
     'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo', 'ж': 'zh', 'з': 'z',
@@ -260,7 +272,7 @@
         state.authenticated = false;
         openLoginSheet();
       }
-      throw new Error((data && data.error) || `Fehler ${response.status}`);
+      throw new Error(fehlerText(data, response.status));
     }
     return data;
   }

@@ -4,6 +4,7 @@
 const { DatabaseSync } = require('node:sqlite');
 const path = require('node:path');
 const fs = require('node:fs');
+const { fehler } = require('./errors');
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'feedboard.db');
 
@@ -640,16 +641,16 @@ function insertRow(table, row, columns) {
 // fehl, bleibt die alte Datenbank unverändert.
 function importBackup(data) {
   if (!data || data.format !== 'feedboard-backup') {
-    throw new Error('Das ist keine Feedboard-Sicherung.');
+    throw fehler('backup_invalid', 'Das ist keine Feedboard-Sicherung.');
   }
   if (Number(data.version) > BACKUP_VERSION) {
-    throw new Error('Die Sicherung stammt aus einer neueren Feedboard-Version.');
+    throw fehler('backup_too_new', 'Die Sicherung stammt aus einer neueren Feedboard-Version.');
   }
   const categories = Array.isArray(data.categories) ? data.categories : [];
   const feeds = Array.isArray(data.feeds) ? data.feeds : [];
   const articles = Array.isArray(data.articles) ? data.articles : [];
   const settings = Array.isArray(data.settings) ? data.settings : [];
-  if (!categories.length) throw new Error('Die Sicherung enthält keine Rubriken.');
+  if (!categories.length) throw fehler('backup_no_categories', 'Die Sicherung enthält keine Rubriken.');
 
   const columnsOf = (table) => db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
   const categoryColumns = columnsOf('categories');
@@ -672,7 +673,7 @@ function importBackup(data) {
     db.exec('COMMIT');
   } catch (error) {
     db.exec('ROLLBACK');
-    throw new Error(`Wiederherstellung fehlgeschlagen: ${error.message}`);
+    throw fehler('restore_failed', `Wiederherstellung fehlgeschlagen: ${error.message}`, { msg: error.message });
   }
 
   return { categories: categories.length, feeds: feeds.length, articles: articles.length };
