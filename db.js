@@ -15,6 +15,11 @@ const db = new DatabaseSync(DB_PATH);
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
 
+// SQLite kennt nur ASCII-Kleinschreibung: "ÜBER" LIKE "%über%" ergibt 0.
+// Fuer deutsche und russische Inhalte ist das zu wenig, deshalb eine eigene
+// Funktion mit den Kleinschreib-Regeln von JavaScript.
+db.function('kleinschreib', { deterministic: true }, (value) => String(value ?? '').toLowerCase());
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS categories (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -456,9 +461,20 @@ function getRecentUnread(hours = 24, limit = 120) {
 }
 
 // Volltextsuche (JS-seitig, damit Groß-/Kleinschreibung auch bei Kyrillisch passt)
+// Durchsucht Titel, Kurzfassung, geholten Volltext und KI-Zusammenfassung.
+//
+// Die Auswahl passiert in SQL statt in JavaScript: der Volltext eines Artikels
+// kann etliche Kilobyte gross sein, und frueher wurde die komplette
+// Artikeltabelle in den Speicher geladen und dort gefiltert. So beruehrt
+// SQLite den Volltext nur zeilenweise und bricht beim Limit ab. Die
+// Treffer-Reihenfolge (neueste zuerst) bleibt unveraendert.
 function searchArticles(query, limit = 100) {
   const needle = String(query || '').trim().toLowerCase();
   if (!needle) return [];
+
+  // %, _ und \ sind LIKE-Platzhalter — im Suchtext sollen sie woertlich gelten
+  const muster = `%${needle.replace(/[\\%_]/g, (z) => `\\${z}`)}%`;
+
   const rows = db.prepare(`
     SELECT a.id, a.title, a.link, a.summary, a.image_url, a.read_at, a.starred_at, a.published_at, a.fetched_at,
            f.name AS feed_name, f.site_url AS feed_site_url, f.rss_url AS feed_rss_url,
@@ -466,33 +482,30 @@ function searchArticles(query, limit = 100) {
     FROM articles a
     JOIN feeds f ON f.id = a.feed_id
     JOIN categories c ON c.id = f.category_id
+    WHERE kleinschreib(a.title)      LIKE :muster ESCAPE '\\'
+       OR kleinschreib(a.summary)    LIKE :muster ESCAPE '\\'
+       OR kleinschreib(a.content)    LIKE :muster ESCAPE '\\'
+       OR kleinschreib(a.ai_summary) LIKE :muster ESCAPE '\\'
     ORDER BY COALESCE(a.published_at, a.fetched_at) DESC, a.id DESC
-  `).all();
+    LIMIT :limit
+  `).all({ muster, limit });
 
-  const results = [];
-  for (const row of rows) {
-    const haystack = `${row.title || ''}\n${row.summary || ''}`.toLowerCase();
-    if (haystack.includes(needle)) {
-      results.push({
-        id: row.id,
-        title: row.title,
-        link: row.link,
-        summary: row.summary,
-        image: row.image_url || null,
-        read: !!row.read_at,
-        starred: !!row.starred_at,
-        published_at: row.published_at,
-        fetched_at: row.fetched_at,
-        feed_name: row.feed_name,
-        feed_site_url: row.feed_site_url,
-        feed_rss_url: row.feed_rss_url,
-        category_name: row.category_name,
-        category_slug: row.category_slug,
-      });
-      if (results.length >= limit) break;
-    }
-  }
-  return results;
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    link: row.link,
+    summary: row.summary,
+    image: row.image_url || null,
+    read: !!row.read_at,
+    starred: !!row.starred_at,
+    published_at: row.published_at,
+    fetched_at: row.fetched_at,
+    feed_name: row.feed_name,
+    feed_site_url: row.feed_site_url,
+    feed_rss_url: row.feed_rss_url,
+    category_name: row.category_name,
+    category_slug: row.category_slug,
+  }));
 }
 
 // ---------------------------------------------------------------------------
