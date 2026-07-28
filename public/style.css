@@ -3,12 +3,15 @@
    ========================================================================== */
 
 :root {
+  /* Sagt dem Browser, wie er seine eigenen Bestandteile zeichnen soll:
+     Scrollbalken, Eingabefeld-Chrome, Textcursor, Autofill-Hintergrund. */
+  color-scheme: light;
   --bg: #f6f2ea;
   --surface: #fffdf8;
   --surface-raised: #fffefb;
   --ink: #1c1914;
-  --muted: #71695b;
-  --faint: #a49b8a;
+  --muted: #625b4e;
+  --faint: #7a7263;
   --line: #e4ddce;
   --line-strong: #cfc5b0;
   --accent: #b3341e;
@@ -29,6 +32,7 @@
 /* Dunkel = OLED-Schwarz: echter schwarzer Hintergrund, Flächen nur minimal
    angehoben, Graustufen neutral (kein Warmstich auf Schwarz). */
 html[data-theme='dark'] {
+  color-scheme: dark;
   --bg: #000000;
   --surface: #0a0a0a;
   --surface-raised: #101010;
@@ -1323,3 +1327,28 @@ body.font-large .search-result .article-title { font-size: 16.5px; }
   color: var(--ink);
 }
 .sheet-briefing strong:first-child { margin-top: 0; }
+
+/* ==========================================================================
+   Reduzierte Bewegung — folgt der Betriebssystem-Einstellung
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Ausnahme: Der Aktualisieren-Spinner ist eine Fortschrittsanzeige. Er muss
+     weiterlaufen, sonst wirkt der Feed-Abruf eingefroren — nur ruhiger. */
+  .tool-btn.spinning .icon-refresh {
+    animation: spin 1.8s linear infinite !important;
+  }
+
+  /* Verschiebungen ganz weglassen statt nur zu beschleunigen. */
+  .category-tile:hover { transform: none; }
+  .tool-btn:active { transform: none; }
+}
