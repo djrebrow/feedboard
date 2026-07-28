@@ -30,6 +30,8 @@
       density_comfortable: 'Komfortabel',
       density_compact: 'Kompakt',
       thumbnails_label: 'Thumbnails in der Liste',
+      dedupe_label: 'Gleiche Meldung zusammenfassen',
+      also_at: 'Auch bei:',
       favicon_cache_label: 'Favicons lokal cachen',
       mute_label: 'Ausblenden (ein Wort pro Zeile)',
       mute_placeholder: 'z. B. Werbung',
@@ -174,6 +176,8 @@
       density_comfortable: 'Свободно',
       density_compact: 'Компактно',
       thumbnails_label: 'Миниатюры в списке',
+      dedupe_label: 'Объединять одинаковые новости',
+      also_at: 'Также:',
       favicon_cache_label: 'Кэшировать фавиконы локально',
       mute_label: 'Скрывать (по слову в строке)',
       mute_placeholder: 'напр. реклама',
@@ -327,6 +331,7 @@
     fontSize: 'normal',    // 'small' | 'normal' | 'large'
     density: 'comfortable',// 'comfortable' | 'compact'
     thumbnails: false,     // Thumbnails in der Liste
+    dedupe: true,          // gleiche Meldung aus mehreren Quellen zusammenfassen
     faviconCache: false,   // Favicons über den lokalen Proxy laden
     loading: false,
   };
@@ -358,6 +363,7 @@
   const segFontSize = document.getElementById('seg-fontsize');
   const segDensity = document.getElementById('seg-density');
   const chkThumbnails = document.getElementById('chk-thumbnails');
+  const chkDedupe = document.getElementById('chk-dedupe');
   const chkFaviconCache = document.getElementById('chk-favicon-cache');
   const inputMute = document.getElementById('input-mute');
   const btnMuteSave = document.getElementById('btn-mute-save');
@@ -801,6 +807,20 @@
     }
   }
 
+  // Weist die zusammengefassten Quellen aus — verschwiegen wird nichts, jede
+  // Quelle bleibt einzeln anklickbar.
+  function duplicateHintHtml(article) {
+    const weitere = article.duplicates;
+    if (!weitere || !weitere.length) return '';
+    const quellen = weitere.map((eintrag) => {
+      const link = safeUrl(eintrag.link);
+      return link
+        ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(eintrag.feed_name)}</a>`
+        : esc(eintrag.feed_name);
+    }).join(' · ');
+    return `<div class="duplicate-hint">${esc(t('also_at'))} ${quellen}</div>`;
+  }
+
   function searchResultHtml(article) {
     const link = safeUrl(article.link);
     const image = safeUrl(article.image);
@@ -816,6 +836,7 @@
         <div class="search-result-body" data-action="toggle-summary">
           <div class="search-result-meta">${esc(article.category_name)} · ${esc(article.feed_name)} · ${esc(relativeTime(article.published_at || article.fetched_at))}</div>
           ${title}
+          ${duplicateHintHtml(article)}
           ${article.summary ? `<div class="search-result-summary">${esc(article.summary)}</div>` : ''}
           ${articleExtraHtml(article)}
           ${articleActionsHtml(article)}
@@ -861,7 +882,91 @@
       const right = Date.parse(b.published_at || b.fetched_at || 0) || 0;
       return right - left;
     });
-    return all.slice(0, RIVER_MAX);
+    return (state.dedupe ? mergeDuplicates(all) : all).slice(0, RIVER_MAX);
+  }
+
+  // ---- Dieselbe Meldung aus mehreren Quellen --------------------------------
+  // Verglichen werden die Titel als Wortmengen: die Formulierungen der
+  // Redaktionen unterscheiden sich, die tragenden Wörter bleiben. Verlangt wird
+  // zusätzlich zeitliche Nähe und eine andere Quelle — zwei Artikel desselben
+  // Feeds sind eine Serie, kein Duplikat.
+
+  const DUPLICATE_WINDOW_MS = 36 * 60 * 60 * 1000;
+  const DUPLICATE_MIN_OVERLAP = 0.6;
+  const DUPLICATE_MIN_WORDS = 3;
+
+  // Füllwörter tragen nichts zur Unterscheidung bei und würden kurze Titel
+  // fälschlich ähnlich machen.
+  const STOPWORDS = new Set([
+    'aber', 'auch', 'auf', 'aus', 'bei', 'dass', 'dem', 'den', 'der', 'des', 'die', 'ein', 'eine',
+    'einen', 'einer', 'für', 'hat', 'ist', 'mit', 'nach', 'nicht', 'noch', 'sich', 'sind', 'über',
+    'und', 'von', 'vor', 'wird', 'werden', 'zum', 'zur',
+    'and', 'are', 'for', 'from', 'has', 'have', 'not', 'that', 'the', 'this', 'was', 'were', 'with',
+    'для', 'его', 'как', 'который', 'нас', 'нет', 'что', 'это',
+  ]);
+
+  function storyTokens(title) {
+    const woerter = String(title || '')
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .split(' ')
+      .filter((w) => w.length >= 4 && !STOPWORDS.has(w));
+    return new Set(woerter);
+  }
+
+  // Anteil gemeinsamer Wörter, bezogen auf den kürzeren Titel — sonst würde ein
+  // langer Titel mit erklärendem Nachsatz nie zum knappen Pendant passen.
+  function tokenOverlap(a, b) {
+    if (a.size < DUPLICATE_MIN_WORDS || b.size < DUPLICATE_MIN_WORDS) return 0;
+    let treffer = 0;
+    for (const wort of a) if (b.has(wort)) treffer++;
+    return treffer / Math.min(a.size, b.size);
+  }
+
+  // Erwartet nach Datum absteigend sortierte Artikel: der erste Treffer einer
+  // Meldung ist damit der neueste und führt die Gruppe an.
+  function mergeDuplicates(articles) {
+    const gruppen = [];
+
+    for (const article of articles) {
+      const tokens = storyTokens(article.title);
+      const zeit = Date.parse(article.published_at || article.fetched_at || 0) || 0;
+      const link = article.link || null;
+      let ziel = null;
+
+      // Rückwärts, weil die zeitlich nächsten Gruppen am Ende stehen; sobald das
+      // Zeitfenster gerissen ist, liegt alles Weitere noch weiter zurück.
+      for (let i = gruppen.length - 1; i >= 0; i--) {
+        const gruppe = gruppen[i];
+        if (gruppe.zeit - zeit > DUPLICATE_WINDOW_MS) break;
+        if (gruppe.quellen.has(article.feed_name)) continue;
+        const gleicherLink = link && gruppe.links.has(link);
+        if (gleicherLink || tokenOverlap(tokens, gruppe.tokens) >= DUPLICATE_MIN_OVERLAP) {
+          ziel = gruppe;
+          break;
+        }
+      }
+
+      if (ziel) {
+        ziel.kopf.duplicates.push({ feed_name: article.feed_name, link: article.link || null });
+        ziel.quellen.add(article.feed_name);
+        if (link) ziel.links.add(link);
+        // Ungelesen schlägt gelesen: sonst verschwindet eine ungelesene Meldung
+        // hinter einem bereits gelesenen Duplikat.
+        if (!article.read) ziel.kopf.read = false;
+      } else {
+        const kopf = { ...article, duplicates: [] };
+        gruppen.push({
+          kopf,
+          tokens,
+          zeit,
+          quellen: new Set([article.feed_name]),
+          links: new Set(link ? [link] : []),
+        });
+      }
+    }
+
+    return gruppen.map((gruppe) => gruppe.kopf);
   }
 
   function render() {
@@ -1135,6 +1240,7 @@
     segDensity.querySelectorAll('[data-density]').forEach((b) => b.classList.toggle('active', b.dataset.density === state.density));
     chkThumbnails.checked = state.thumbnails;
     chkFaviconCache.checked = state.faviconCache;
+    chkDedupe.checked = state.dedupe;
   }
 
   function setFontSize(size) {
@@ -1152,6 +1258,13 @@
   function setThumbnails(on) {
     state.thumbnails = on;
     localStorage.setItem('feedboard-thumbnails', on ? '1' : '0');
+    applyDisplaySettings();
+    render();
+  }
+
+  function setDedupe(on) {
+    state.dedupe = on;
+    localStorage.setItem('feedboard-dedupe', on ? '1' : '0');
     applyDisplaySettings();
     render();
   }
@@ -2115,6 +2228,7 @@
     if (btn) setDensity(btn.dataset.density);
   });
   chkThumbnails.addEventListener('change', () => setThumbnails(chkThumbnails.checked));
+  chkDedupe.addEventListener('change', () => setDedupe(chkDedupe.checked));
   chkFaviconCache.addEventListener('change', () => setFaviconCache(chkFaviconCache.checked));
   btnMuteSave.addEventListener('click', saveMuteWords);
 
@@ -2225,6 +2339,8 @@
   state.fontSize = ['small', 'normal', 'large'].includes(savedFont) ? savedFont : 'normal';
   state.density = localStorage.getItem('feedboard-density') === 'compact' ? 'compact' : 'comfortable';
   state.thumbnails = localStorage.getItem('feedboard-thumbnails') === '1';
+  // Standard an: nur ein ausdrückliches Abschalten wird gespeichert.
+  state.dedupe = localStorage.getItem('feedboard-dedupe') !== '0';
   state.faviconCache = localStorage.getItem('feedboard-favicon-cache') === '1';
   applyDisplaySettings();
   loadMuteWords();

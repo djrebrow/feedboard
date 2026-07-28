@@ -49,6 +49,7 @@ Beide Funktionen sind aus, solange die zugehörigen Umgebungsvariablen fehlen �
 
 - **Design: Hell, Dunkel oder System** — im Zahnrad-Menü wählbar; „System" folgt der Betriebssystem-Einstellung und wechselt auch im laufenden Betrieb mit. Der Sonne/Mond-Knopf bleibt als schneller Hell/Dunkel-Umschalter
 - **Anzeige-Einstellungen**: Schriftgröße, Zeilendichte, Thumbnails in der Liste, Favicons wahlweise über den lokalen Cache (dann ohne Aufruf externer Dienste beim Anzeigen)
+- **Gleiche Meldung zusammenfassen**: In „Alle Artikel" wird dieselbe Nachricht aus mehreren Quellen zu einem Eintrag gebündelt, die weiteren Quellen stehen darunter und bleiben einzeln anklickbar. Abschaltbar im Zahnrad-Menü
 - **Zweisprachige Oberfläche** (Deutsch, Russisch)
 - **Installierbar als PWA**, App-Grundgerüst und zuletzt geladene Daten sind offline verfügbar
 - **Automatische Aktualisierung** im Hintergrund (Standard: alle 30 Minuten) plus manueller Refresh, einzeln oder für alle Feeds

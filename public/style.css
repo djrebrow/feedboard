@@ -1261,6 +1261,15 @@ body.font-large .search-result .article-title { font-size: 16.5px; }
 }
 .search-result.selected { border-color: var(--accent); }
 
+/* Weitere Quellen derselben Meldung */
+.duplicate-hint {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.duplicate-hint a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line-strong); }
+.duplicate-hint a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
 /* Pausierte Feeds */
 .feed-paused .feed-header { opacity: 0.6; }
 

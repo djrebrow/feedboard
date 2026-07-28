@@ -49,6 +49,7 @@ Both stay switched off while their environment variables are missing — the but
 
 - **Theme: light, dark or system** — selectable in the gear menu; "system" follows the operating system setting and switches along with it while running. The sun/moon button remains as a quick light/dark toggle
 - **Display settings**: font size, row density, thumbnails in the list, and favicons optionally served from the local cache (no calls to external services while browsing)
+- **Merge duplicate stories**: in "All articles", the same story from several sources is bundled into one entry; the other sources are listed underneath and stay individually clickable. Can be turned off in the gear menu
 - **Bilingual interface** (German, Russian)
 - **Installable as a PWA**; the app shell and the most recently loaded data are available offline
 - **Automatic background refresh** (default: every 30 minutes) plus manual refresh, for a single feed or all of them
