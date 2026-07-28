@@ -24,18 +24,20 @@ Selbstgehostetes Dashboard für RSS-/Atom-Feeds und öffentliche Telegram-Kanäl
 - **Artikel-Vorschau** mit Bild und Kurzfassung beim Überfahren mit der Maus; auf Touch-Geräten als eingeblendete Karte
 - **Lese-Status** je Artikel, dazu „alles gelesen" pro Feed oder Rubrik, Ungelesen-Zähler und ein Filter für ungelesene Artikel
 - **Gespeicherte Artikel** (Stern) mit eigener Ansicht
-- **Volltextsuche** über alle vorliegenden Artikel (Titel und Kurzfassung)
+- **Volltextsuche** über alle vorliegenden Artikel — Titel, Kurzfassung, nachgeladener Volltext und KI-Zusammenfassung
 - **Ausblenden per Stichwort** (Mute-Wörter); gespeicherte Artikel bleiben davon unberührt
 - **Volltext nachladen** bei Feeds, die nur Anrisse liefern: der Artikeltext wird aus der Seite geholt und in der Datenbank abgelegt (auch offline lesbar)
 - **Tastatur-Navigation**: `j`/`k` Artikel wechseln, `o` öffnen, `m` gelesen, `s` speichern, `r` aktualisieren, `u` nur Ungelesene, `a` alle Artikel, `/` suchen, `Esc` zurück (Übersicht im Zahnrad-Menü)
 
 ### Optional: KI und Teilen
 
-Beide Funktionen sind aus, solange die zugehörigen Umgebungsvariablen fehlen — die Knöpfe erscheinen dann gar nicht erst.
+Beide Funktionen sind aus, solange sie nicht eingerichtet sind — die Knöpfe erscheinen dann gar nicht erst. Eingerichtet wird im Zahnrad-Menü unter „Zugänge einrichten“ (nur angemeldet sichtbar) oder über Umgebungsvariablen.
 
 - **KI-Kurzfassung** (drei Sätze) und **Übersetzung** je Artikel über die Claude API; beides wird zwischengespeichert, kostet also höchstens einen Aufruf je Artikel
 - **Tages-Briefing**: alle ungelesenen Artikel der letzten 24 Stunden nach Themen gebündelt (Zahnrad-Menü); wird sechs Stunden lang wiederverwendet
 - **Artikel per Telegram teilen** — an den eigenen Chat über einen Bot
+- **Geplantes Briefing per Telegram**: zu einer frei wählbaren Uhrzeit schickt Feedboard das Briefing von selbst in den Chat
+- **Einrichtung im Menü**: Bot-Token, Chat-ID, KI-Schlüssel, Modell und Briefing-Zeitplan sind nach der Anmeldung im Zahnrad-Menü setzbar, samt Knopf für eine Testnachricht. Die Geheimnisse verlassen den Server nie wieder — angezeigt werden nur ihre letzten vier Zeichen
 
 ### Sicherheit & Sicherung
 
@@ -53,7 +55,7 @@ Beide Funktionen sind aus, solange die zugehörigen Umgebungsvariablen fehlen �
 - **Zweisprachige Oberfläche** (Deutsch, Russisch)
 - **Installierbar als PWA**, App-Grundgerüst und zuletzt geladene Daten sind offline verfügbar
 - **Automatische Aktualisierung** im Hintergrund (Standard: alle 30 Minuten) plus manueller Refresh, einzeln oder für alle Feeds
-- Duplikat-Erkennung, Fehleranzeige pro Feed (⚠ mit Details), maximal 30 gespeicherte Artikel pro Feed
+- Fehleranzeige pro Feed (⚠ mit Details). Aufbewahrt werden 30 gelesene Artikel pro Feed; ungelesene und gespeicherte bleiben erhalten (Notbremse bei 300 pro Feed)
 - SQLite über das **eingebaute `node:sqlite`** — keine nativen Abhängigkeiten, kein Kompilieren (ideal für Raspberry Pi)
 
 ## Voraussetzungen
@@ -82,6 +84,8 @@ Die Datenbank liegt im Ordner `./data` und überlebt Container-Neustarts und -Up
 
 ## Konfiguration (Umgebungsvariablen)
 
+Telegram, der KI-Schlüssel und der Briefing-Zeitplan lassen sich auch **im Zahnrad-Menü unter „Zugänge einrichten"** setzen — sichtbar, sobald man angemeldet ist. Die Umgebungsvariablen legen diese Werte beim allerersten Start an; danach gilt, was im Menü steht (dasselbe Verhalten wie bei `FEEDBOARD_PASSWORD`). Wer ganz ohne Umgebungsvariablen startet, richtet alles im Menü ein.
+
 | Variable                 | Standard              | Bedeutung                                                                                                            |
 | ------------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `PORT`                   | `8321`                | HTTP-Port                                                                                                              |
@@ -89,13 +93,13 @@ Die Datenbank liegt im Ordner `./data` und überlebt Container-Neustarts und -Up
 | `DB_PATH`                | `./data/feedboard.db` | Pfad zur SQLite-Datei                                                                                                  |
 | `DEV_ASSETS`             | –                     | `1` = Asset-Version bei jedem Seitenaufruf neu aus den Dateizeiten bestimmen (für die Live-Entwicklung des Frontends)   |
 | `FEEDBOARD_PASSWORD`     | –                     | Legt beim allerersten Start das Passwort an. Danach gilt, was im Menü gesetzt wurde. Leer = bearbeiten bleibt offen.     |
-| `ANTHROPIC_API_KEY`      | –                     | Schaltet Kurzfassung, Übersetzung und Briefing frei                                                                    |
-| `ANTHROPIC_MODEL`        | `claude-opus-5`       | Verwendetes Claude-Modell                                                                                              |
-| `TELEGRAM_BOT_TOKEN`     | –                     | Bot-Token zum Teilen von Artikeln (zusammen mit `TELEGRAM_CHAT_ID`)                                                    |
-| `TELEGRAM_CHAT_ID`       | –                     | Ziel-Chat für geteilte Artikel                                                                                          |
-| `BRIEFING_CRON`          | –                     | Zeitplan für das automatische Briefing, z. B. `0 7 * * *` für täglich 7 Uhr. Leer = aus. Braucht KI-Zugang und Telegram. |
-| `BRIEFING_LANG`          | `de`                  | Sprache des geplanten Briefings (`de`, `en`, `ru`)                                                                      |
-| `BRIEFING_HOURS`         | `24`                  | Wie weit das geplante Briefing zurückblickt, in Stunden (1–168)                                                          |
+| `ANTHROPIC_API_KEY`      | –                     | Startwert für den KI-Schlüssel (Kurzfassung, Übersetzung, Briefing). Danach gilt das Menü                               |
+| `ANTHROPIC_MODEL`        | `claude-opus-5`       | Startwert für das Claude-Modell. Danach gilt das Menü                                                                  |
+| `TELEGRAM_BOT_TOKEN`     | –                     | Startwert für den Bot-Token (zusammen mit `TELEGRAM_CHAT_ID`). Danach gilt das Menü                                    |
+| `TELEGRAM_CHAT_ID`       | –                     | Startwert für den Ziel-Chat. Danach gilt das Menü                                                                       |
+| `BRIEFING_CRON`          | –                     | Startwert für den Briefing-Zeitplan, z. B. `0 7 * * *`. Leer = aus. Braucht KI-Zugang und Telegram. Danach gilt das Menü |
+| `BRIEFING_LANG`          | `de`                  | Startwert für die Sprache des Briefings (`de`, `en`, `ru`). Danach gilt das Menü                                        |
+| `BRIEFING_HOURS`         | `24`                  | Startwert für den Rückblick des Briefings in Stunden (1–168). Danach gilt das Menü                                      |
 
 Für Docker liegen die optionalen Werte am besten in einer `.env` neben der `docker-compose.yml` — sie werden dort schon durchgereicht.
 
@@ -142,6 +146,9 @@ Für Docker liegen die optionalen Werte am besten in einer `.env` neben der `doc
 | `GET /api/search?q=…`            | Volltextsuche über alle Artikel (max. 100 Treffer)         |
 | `GET /api/settings/mute`         | Mute-Wörter lesen                                          |
 | `PUT /api/settings/mute`         | Mute-Wörter setzen `{ words: […] }`                        |
+| `GET /api/settings/integrations` | Zugänge lesen (nur angemeldet; ohne Geheimnisse)           |
+| `PUT /api/settings/integrations` | Zugänge setzen (nur angemeldet; fehlende Felder unverändert) |
+| `POST /api/settings/integrations/test-telegram` | Testnachricht schicken (nur angemeldet)     |
 | `GET /api/favicon?host=…`        | Favicon über den lokalen Cache ausliefern                  |
 
 ### Volltext, KI und Teilen

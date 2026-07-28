@@ -6,18 +6,30 @@
 
 const { Anthropic } = require('@anthropic-ai/sdk');
 
-const API_KEY = process.env.ANTHROPIC_API_KEY || '';
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-5';
+const config = require('./config');
 
-const client = API_KEY ? new Anthropic({ apiKey: API_KEY }) : null;
+// Der Schlüssel ist im Menü änderbar. Der Client wird deshalb erst bei Bedarf
+// gebaut und nur dann neu, wenn sich der Schlüssel tatsächlich geändert hat —
+// so kostet der Normalfall nichts und ein Wechsel greift ohne Neustart.
+let zwischenspeicher = { schluessel: '', client: null };
+
+function client() {
+  const schluessel = config.get('anthropic_api_key');
+  if (!schluessel) return null;
+  if (zwischenspeicher.schluessel !== schluessel) {
+    zwischenspeicher = { schluessel, client: new Anthropic({ apiKey: schluessel }) };
+  }
+  return zwischenspeicher.client;
+}
 
 function isEnabled() {
-  return !!client;
+  return !!config.get('anthropic_api_key');
 }
 
 function requireClient() {
-  if (!client) throw new Error('Die KI-Funktionen sind nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
-  return client;
+  const vorhanden = client();
+  if (!vorhanden) throw new Error('Die KI-Funktionen sind nicht eingerichtet — Schlüssel fehlt (Zahnrad-Menü).');
+  return vorhanden;
 }
 
 const LANGUAGE_NAMES = { de: 'Deutsch', ru: 'Russisch', en: 'Englisch' };
@@ -33,7 +45,7 @@ async function ask({ system, prompt, maxTokens = 2048, effort = 'low' }) {
   let response;
   try {
     response = await anthropic.messages.create({
-      model: MODEL,
+      model: config.anthropicModel(),
       max_tokens: maxTokens,
       system,
       output_config: { effort },
@@ -143,4 +155,4 @@ async function briefing(articles, lang = 'de') {
   });
 }
 
-module.exports = { isEnabled, summarize, translate, briefing, MODEL };
+module.exports = { isEnabled, summarize, translate, briefing, model: config.anthropicModel };

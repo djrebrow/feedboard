@@ -7,6 +7,7 @@ const express = require('express');
 const cron = require('node-cron');
 
 const store = require('./db');
+const config = require('./config');
 const fetcher = require('./feedFetcher');
 const opml = require('./opml');
 const auth = require('./auth');
@@ -17,15 +18,12 @@ const telegram = require('./telegram');
 const PORT = Number(process.env.PORT) || 8321;
 const FETCH_INTERVAL_MINUTES = clampInterval(process.env.FETCH_INTERVAL_MINUTES, 30);
 
-// Geplantes Briefing: leer = aus. Beispiel "0 7 * * *" für täglich 7 Uhr.
-const BRIEFING_CRON = String(process.env.BRIEFING_CRON || '').trim();
-const BRIEFING_LANG = ['de', 'en', 'ru'].includes(process.env.BRIEFING_LANG) ? process.env.BRIEFING_LANG : 'de';
-const BRIEFING_HOURS = clampHours(process.env.BRIEFING_HOURS, 24);
-
-function clampHours(value, fallback) {
-  const hours = Number(value);
-  if (!Number.isInteger(hours) || hours < 1 || hours > 168) return fallback;
-  return hours;
+// Telegram, KI-Schlüssel und Briefing-Zeitplan liegen in der Datenbank und
+// sind im Zahnrad-Menü änderbar; die Umgebungsvariablen legen sie beim ersten
+// Start an. Siehe config.js.
+const uebernommen = config.seedFromEnv();
+if (uebernommen.length) {
+  console.log(`Erststart: aus der Umgebung übernommen — ${uebernommen.join(', ')}.`);
 }
 
 function clampInterval(value, fallback) {
@@ -470,6 +468,41 @@ app.put('/api/settings/mute', auth.protect, asyncHandler(async (req, res) => {
 }));
 
 // ---------------------------------------------------------------------------
+// API: Zugänge (Telegram, KI, Briefing-Zeitplan)
+// ---------------------------------------------------------------------------
+// Durchweg angemeldet: Lesen ist bei Feedboard sonst offen, Bot-Token und
+// KI-Schlüssel gehen aber niemanden etwas an. Auch angemeldet werden die
+// Geheimnisse nie zurückgegeben — nur ob sie gesetzt sind und ihre letzten
+// vier Zeichen zum Wiedererkennen.
+
+app.get('/api/settings/integrations', auth.protect, (req, res) => {
+  res.json({ ...config.publicState(), schedule: briefingStatus() });
+});
+
+app.put('/api/settings/integrations', auth.protect, asyncHandler(async (req, res) => {
+  const eingabe = req.body ?? {};
+
+  const plan = eingabe.briefing_cron;
+  if (typeof plan === 'string' && plan.trim() && !cron.validate(plan.trim())) {
+    return res.status(400).json({ error: `"${plan.trim()}" ist kein gültiger Zeitplan. Beispiel: 0 7 * * *` });
+  }
+
+  config.setMany(eingabe);
+  // Zeitplan, Schlüssel und Bot können sich gerade geändert haben — neu setzen.
+  const schedule = applyBriefingSchedule();
+  res.json({ ...config.publicState(), schedule });
+}));
+
+// Probenachricht: ohne sie faellt ein Tippfehler erst beim naechsten Briefing auf.
+app.post('/api/settings/integrations/test-telegram', auth.protect, asyncHandler(async (req, res) => {
+  if (!telegram.canShare()) {
+    return res.status(400).json({ error: 'Telegram ist nicht eingerichtet — Bot-Token und Chat-ID fehlen.' });
+  }
+  await telegram.sendText('✅ Feedboard: Testnachricht. Die Verbindung steht.');
+  res.json({ ok: true });
+}));
+
+// ---------------------------------------------------------------------------
 // API: Favicon-Proxy mit lokalem Cache (Offline-tauglich, ohne Google-Aufruf)
 // ---------------------------------------------------------------------------
 
@@ -546,12 +579,13 @@ cron.schedule(`*/${FETCH_INTERVAL_MINUTES} * * * *`, () => {
 // ---------------------------------------------------------------------------
 // Geplantes KI-Briefing per Telegram
 // ---------------------------------------------------------------------------
-// Braucht BRIEFING_CRON (z. B. "0 7 * * *" für täglich 7 Uhr) sowie einen
+// Braucht einen Zeitplan (z. B. "0 7 * * *" für täglich 7 Uhr) sowie einen
 // eingerichteten KI-Zugang und Telegram-Bot. Fehlt eines davon, passiert
 // nichts — die Funktion ist damit eine reine Zugabe für alle, die sie wollen.
 
 async function sendScheduledBriefing() {
-  const articles = store.getRecentUnread(BRIEFING_HOURS, 120);
+  const stunden = config.briefingHours();
+  const articles = store.getRecentUnread(stunden, 120);
   if (!articles.length) {
     console.log('Briefing übersprungen: keine ungelesenen Artikel im Zeitraum.');
     return;
@@ -559,28 +593,56 @@ async function sendScheduledBriefing() {
 
   // force: der Zeitplan soll den Stand von jetzt zusammenfassen und nicht ein
   // Briefing wiederholen, das jemand vor fünf Stunden im Browser erzeugt hat.
-  const briefing = await createBriefing({ lang: BRIEFING_LANG, hours: BRIEFING_HOURS, force: true });
-  const kopf = `📰 Feedboard-Briefing — ${articles.length} ungelesene Artikel der letzten ${BRIEFING_HOURS} Stunden`;
+  const briefing = await createBriefing({ lang: config.briefingLang(), hours: stunden, force: true });
+  const kopf = `📰 Feedboard-Briefing — ${articles.length} ungelesene Artikel der letzten ${stunden} Stunden`;
   const { parts } = await telegram.sendText(`${kopf}\n\n${briefing.text}`);
   console.log(`Briefing verschickt (${articles.length} Artikel, ${parts} Nachricht(en)).`);
 }
 
-if (BRIEFING_CRON) {
-  const fehlend = [
-    !ai.isEnabled() && 'ANTHROPIC_API_KEY',
-    !telegram.canShare() && 'TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID',
-  ].filter(Boolean);
+// Der Zeitplan ist im Menü änderbar, also wird die laufende Aufgabe bei jeder
+// Änderung verworfen und neu gesetzt. Gibt zurück, was der Oberfläche zu
+// melden ist — aktiv, aus, oder was noch fehlt.
+let briefingTask = null;
 
-  if (!cron.validate(BRIEFING_CRON)) {
-    console.warn(`BRIEFING_CRON ist kein gültiger Zeitplan: "${BRIEFING_CRON}" — geplantes Briefing bleibt aus.`);
-  } else if (fehlend.length) {
-    console.warn(`Geplantes Briefing bleibt aus, es fehlt: ${fehlend.join(', ')}.`);
-  } else {
-    cron.schedule(BRIEFING_CRON, () => {
+// Beurteilt nur — ohne Nebenwirkung, damit das Anzeigen der Einstellungen den
+// laufenden Zeitplan nicht jedes Mal zurücksetzt.
+function briefingStatus() {
+  const plan = config.get('briefing_cron');
+  if (!plan) return { active: false, reason: 'off' };
+  if (!cron.validate(plan)) return { active: false, reason: 'invalid_cron', cron: plan };
+
+  const fehlend = [
+    !ai.isEnabled() && 'ai',
+    !telegram.canShare() && 'telegram',
+  ].filter(Boolean);
+  if (fehlend.length) return { active: false, reason: 'missing', missing: fehlend, cron: plan };
+
+  return { active: true, cron: plan };
+}
+
+function applyBriefingSchedule({ leise = false } = {}) {
+  if (briefingTask) {
+    briefingTask.destroy();
+    briefingTask = null;
+  }
+
+  const status = briefingStatus();
+  if (status.active) {
+    briefingTask = cron.schedule(status.cron, () => {
       sendScheduledBriefing().catch((error) => {
         console.error('Geplantes Briefing fehlgeschlagen:', error.message);
       });
     });
-    console.log(`Geplantes Briefing aktiv (${BRIEFING_CRON}, Sprache ${BRIEFING_LANG}, ${BRIEFING_HOURS} Stunden).`);
+    if (!leise) {
+      console.log(`Geplantes Briefing aktiv (${status.cron}, Sprache ${config.briefingLang()}, ${config.briefingHours()} Stunden).`);
+    }
+  } else if (!leise && status.reason === 'invalid_cron') {
+    console.warn(`Zeitplan fürs Briefing ist ungültig: "${status.cron}" — bleibt aus.`);
+  } else if (!leise && status.reason === 'missing') {
+    console.warn(`Geplantes Briefing bleibt aus, nicht eingerichtet: ${status.missing.join(', ')}.`);
   }
+
+  return status;
 }
+
+applyBriefingSchedule();

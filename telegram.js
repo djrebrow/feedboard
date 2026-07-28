@@ -124,11 +124,15 @@ async function fetchTelegramChannel(channel) {
 // Artikel an den eigenen Telegram-Chat schicken (Bot API)
 // ---------------------------------------------------------------------------
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
-const CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
+// Bewusst bei jedem Aufruf frisch gelesen: die Zugangsdaten sind im Menü
+// änderbar und sollen ohne Neustart greifen.
+const config = require('./config');
+
+const botToken = () => config.get('telegram_bot_token');
+const chatId = () => config.get('telegram_chat_id');
 
 function canShare() {
-  return !!(BOT_TOKEN && CHAT_ID);
+  return !!(botToken() && chatId());
 }
 
 const MAX_MESSAGE_CHARS = 4096;
@@ -136,11 +140,11 @@ const MAX_MESSAGE_CHARS = 4096;
 // Bewusst ohne parse_mode: dann muss nichts escapt werden und Telegram
 // verlinkt nackte URLs von selbst.
 async function sendOne(text, { preview = true } = {}) {
-  const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+  const response = await fetch(`https://api.telegram.org/bot${botToken()}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      chat_id: CHAT_ID,
+      chat_id: chatId(),
       text: text.slice(0, MAX_MESSAGE_CHARS),
       disable_web_page_preview: !preview,
     }),
@@ -181,7 +185,7 @@ function splitMessage(text, limit = MAX_MESSAGE_CHARS) {
 
 async function sendText(text, { preview = false } = {}) {
   if (!canShare()) {
-    throw new Error('Das Teilen ist nicht eingerichtet (TELEGRAM_BOT_TOKEN und TELEGRAM_CHAT_ID fehlen).');
+    throw new Error('Telegram ist nicht eingerichtet — Bot-Token und Chat-ID fehlen (Zahnrad-Menü).');
   }
   const stuecke = splitMessage(text);
   if (!stuecke.length) throw new Error('Es gibt nichts zu senden.');
@@ -191,7 +195,7 @@ async function sendText(text, { preview = false } = {}) {
 
 async function shareArticle({ title, link, summary, feedName }) {
   if (!canShare()) {
-    throw new Error('Das Teilen ist nicht eingerichtet (TELEGRAM_BOT_TOKEN und TELEGRAM_CHAT_ID fehlen).');
+    throw new Error('Telegram ist nicht eingerichtet — Bot-Token und Chat-ID fehlen (Zahnrad-Menü).');
   }
 
   const parts = [String(title || '').trim()];

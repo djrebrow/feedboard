@@ -32,6 +32,24 @@
       thumbnails_label: 'Thumbnails in der Liste',
       dedupe_label: 'Gleiche Meldung zusammenfassen',
       also_at: 'Auch bei:',
+      integrations_label: 'Zugänge einrichten',
+      tg_token_label: 'Telegram Bot-Token',
+      tg_chat_label: 'Telegram Chat-ID',
+      ai_key_label: 'KI-Schlüssel',
+      ai_model_label: 'KI-Modell',
+      briefing_cron_label: 'Briefing-Zeitplan (cron)',
+      briefing_hours_label: 'Rückblick (Std.)',
+      briefing_lang_label: 'Sprache',
+      tg_test: 'Testnachricht',
+      clear: 'entfernen',
+      integrations_saved: 'Gespeichert.',
+      integrations_sent: 'Testnachricht verschickt.',
+      integrations_keep: 'gesetzt ({hint}) — leer lassen heißt unverändert',
+      integrations_unset: 'nicht gesetzt',
+      schedule_active: 'Briefing aktiv: {cron}',
+      schedule_off: 'Briefing aus (kein Zeitplan)',
+      schedule_invalid: 'Zeitplan ungültig — Briefing bleibt aus',
+      schedule_missing: 'Briefing wartet auf: {what}',
       favicon_cache_label: 'Favicons lokal cachen',
       mute_label: 'Ausblenden (ein Wort pro Zeile)',
       mute_placeholder: 'z. B. Werbung',
@@ -178,6 +196,24 @@
       thumbnails_label: 'Миниатюры в списке',
       dedupe_label: 'Объединять одинаковые новости',
       also_at: 'Также:',
+      integrations_label: 'Настройка подключений',
+      tg_token_label: 'Токен Telegram-бота',
+      tg_chat_label: 'ID чата Telegram',
+      ai_key_label: 'Ключ ИИ',
+      ai_model_label: 'Модель ИИ',
+      briefing_cron_label: 'Расписание сводки (cron)',
+      briefing_hours_label: 'Период (ч)',
+      briefing_lang_label: 'Язык',
+      tg_test: 'Тестовое сообщение',
+      clear: 'удалить',
+      integrations_saved: 'Сохранено.',
+      integrations_sent: 'Тестовое сообщение отправлено.',
+      integrations_keep: 'задано ({hint}) — пустое поле значит без изменений',
+      integrations_unset: 'не задано',
+      schedule_active: 'Сводка включена: {cron}',
+      schedule_off: 'Сводка выключена (нет расписания)',
+      schedule_invalid: 'Неверное расписание — сводка не работает',
+      schedule_missing: 'Сводка ждёт: {what}',
       favicon_cache_label: 'Кэшировать фавиконы локально',
       mute_label: 'Скрывать (по слову в строке)',
       mute_placeholder: 'напр. реклама',
@@ -379,6 +415,19 @@
   const btnPassword = document.getElementById('btn-password');
   const btnBriefing = document.getElementById('btn-briefing');
   const settingsAi = document.getElementById('settings-ai');
+  const settingsIntegrations = document.getElementById('settings-integrations');
+  const inputTgToken = document.getElementById('input-tg-token');
+  const inputTgChat = document.getElementById('input-tg-chat');
+  const inputAiKey = document.getElementById('input-ai-key');
+  const inputAiModel = document.getElementById('input-ai-model');
+  const inputBriefingCron = document.getElementById('input-briefing-cron');
+  const inputBriefingHours = document.getElementById('input-briefing-hours');
+  const selectBriefingLang = document.getElementById('select-briefing-lang');
+  const clearTgToken = document.getElementById('clear-tg-token');
+  const clearAiKey = document.getElementById('clear-ai-key');
+  const integrationsStatus = document.getElementById('integrations-status');
+  const btnIntegrationsSave = document.getElementById('btn-integrations-save');
+  const btnIntegrationsTest = document.getElementById('btn-integrations-test');
   const settingsAccount = document.getElementById('settings-account');
   const shortcutList = document.getElementById('shortcut-list');
 
@@ -1309,6 +1358,114 @@
     btnLogout.hidden = !features.auth || locked;
     btnPassword.hidden = locked;
     btnPassword.textContent = features.auth ? t('password_change') : t('password_set');
+
+    // Bot-Token und KI-Schlüssel gehören nur Angemeldeten. Der Server lehnt
+    // unangemeldete Zugriffe ohnehin ab — das hier hält sie erst gar nicht hin.
+    const darfEinrichten = !locked;
+    settingsIntegrations.hidden = !darfEinrichten;
+    if (darfEinrichten && !integrationsGeladen) loadIntegrations();
+    if (!darfEinrichten) integrationsGeladen = false;
+  }
+
+  // Zugänge einrichten (Telegram, KI, Briefing) ---------------------------------
+  // Die Geheimnisse kommen nie vom Server zurück. Ein leeres Feld heißt deshalb
+  // „unverändert"; entfernt wird ausdrücklich über den Knopf daneben.
+
+  let integrationsGeladen = false;
+
+  function scheduleText(schedule) {
+    if (!schedule) return '';
+    if (schedule.active) return t('schedule_active', { cron: schedule.cron });
+    if (schedule.reason === 'invalid_cron') return t('schedule_invalid');
+    if (schedule.reason === 'missing') return t('schedule_missing', { what: (schedule.missing || []).join(', ') });
+    return t('schedule_off');
+  }
+
+  function applyIntegrations(data) {
+    inputTgToken.value = '';
+    inputAiKey.value = '';
+    inputTgToken.placeholder = data.telegram.token_set
+      ? t('integrations_keep', { hint: data.telegram.token_hint })
+      : t('integrations_unset');
+    inputAiKey.placeholder = data.ai.key_set
+      ? t('integrations_keep', { hint: data.ai.key_hint })
+      : t('integrations_unset');
+    clearTgToken.hidden = !data.telegram.token_set;
+    clearAiKey.hidden = !data.ai.key_set;
+
+    inputTgChat.value = data.telegram.chat_id || '';
+    inputAiModel.value = data.ai.model || '';
+    inputBriefingCron.value = data.briefing.cron || '';
+    inputBriefingHours.value = data.briefing.hours;
+    selectBriefingLang.value = data.briefing.lang;
+
+    setIntegrationsStatus(scheduleText(data.schedule), '');
+  }
+
+  function setIntegrationsStatus(text, art) {
+    integrationsStatus.textContent = text || '';
+    integrationsStatus.classList.toggle('is-error', art === 'error');
+    integrationsStatus.classList.toggle('is-ok', art === 'ok');
+  }
+
+  async function loadIntegrations() {
+    try {
+      applyIntegrations(await api('/api/settings/integrations'));
+      integrationsGeladen = true;
+    } catch (error) {
+      setIntegrationsStatus(error.message, 'error');
+    }
+  }
+
+  async function saveIntegrations() {
+    // Sichtbare Felder gehen immer mit — leer heißt hier wirklich leer.
+    const daten = {
+      telegram_chat_id: inputTgChat.value,
+      anthropic_model: inputAiModel.value,
+      briefing_cron: inputBriefingCron.value,
+      briefing_hours: inputBriefingHours.value,
+      briefing_lang: selectBriefingLang.value,
+    };
+    // Geheimnisse nur, wenn tatsächlich etwas eingetippt wurde.
+    if (inputTgToken.value.trim()) daten.telegram_bot_token = inputTgToken.value;
+    if (inputAiKey.value.trim()) daten.anthropic_api_key = inputAiKey.value;
+
+    btnIntegrationsSave.disabled = true;
+    try {
+      const antwort = await api('/api/settings/integrations', { method: 'PUT', body: JSON.stringify(daten) });
+      applyIntegrations(antwort);
+      setIntegrationsStatus(`${t('integrations_saved')} ${scheduleText(antwort.schedule)}`.trim(), 'ok');
+      await loadBoard(); // KI- und Teilen-Knöpfe hängen an den Zugängen
+    } catch (error) {
+      setIntegrationsStatus(error.message, 'error');
+    } finally {
+      btnIntegrationsSave.disabled = false;
+    }
+  }
+
+  async function clearSecret(feld) {
+    try {
+      applyIntegrations(await api('/api/settings/integrations', {
+        method: 'PUT',
+        body: JSON.stringify({ [feld]: '' }),
+      }));
+      await loadBoard();
+    } catch (error) {
+      setIntegrationsStatus(error.message, 'error');
+    }
+  }
+
+  async function testTelegram() {
+    btnIntegrationsTest.disabled = true;
+    setIntegrationsStatus('…', '');
+    try {
+      await api('/api/settings/integrations/test-telegram', { method: 'POST' });
+      setIntegrationsStatus(t('integrations_sent'), 'ok');
+    } catch (error) {
+      setIntegrationsStatus(error.message, 'error');
+    } finally {
+      btnIntegrationsTest.disabled = false;
+    }
   }
 
   // Bearbeiten ist geschützt, sobald ein Passwort gesetzt ist
@@ -2229,6 +2386,10 @@
   });
   chkThumbnails.addEventListener('change', () => setThumbnails(chkThumbnails.checked));
   chkDedupe.addEventListener('change', () => setDedupe(chkDedupe.checked));
+  btnIntegrationsSave.addEventListener('click', saveIntegrations);
+  btnIntegrationsTest.addEventListener('click', testTelegram);
+  clearTgToken.addEventListener('click', () => clearSecret('telegram_bot_token'));
+  clearAiKey.addEventListener('click', () => clearSecret('anthropic_api_key'));
   chkFaviconCache.addEventListener('change', () => setFaviconCache(chkFaviconCache.checked));
   btnMuteSave.addEventListener('click', saveMuteWords);
 

@@ -24,18 +24,20 @@ Self-hosted dashboard for RSS/Atom feeds and public Telegram channels. Categorie
 - **Article preview** with image and summary on mouse hover; on touch devices as a slide-in card
 - **Read state** per article, plus "mark all as read" per feed or category, unread counters and a filter for unread articles
 - **Saved articles** (star) with a dedicated view
-- **Full-text search** across all available articles (title and summary)
+- **Full-text search** across all available articles — title, summary, fetched full text and AI summary
 - **Hiding by keyword** (mute words); saved articles are never hidden
 - **Fetch the full text** for feeds that only ship teasers: the article body is pulled from the page and stored in the database (readable offline too)
 - **Keyboard navigation**: `j`/`k` move between articles, `o` open, `m` read, `s` save, `r` refresh, `u` unread only, `a` all articles, `/` search, `Esc` back (overview in the gear menu)
 
 ### Optional: AI and sharing
 
-Both stay switched off while their environment variables are missing — the buttons never even appear.
+Both stay switched off until they are set up — the buttons never even appear. Set them up in the gear menu under "Set up integrations" (visible once signed in) or via environment variables.
 
 - **AI summary** (three sentences) and **translation** per article via the Claude API; both are cached, so each article costs at most one call
 - **Daily briefing**: every unread article of the past 24 hours grouped by topic (gear menu); reused for six hours
 - **Share an article via Telegram** — to your own chat through a bot
+- **Scheduled briefing via Telegram**: at a time of your choosing, Feedboard sends the briefing to the chat on its own
+- **Set-up in the menu**: bot token, chat ID, AI key, model and briefing schedule can be set in the gear menu once signed in, including a button for a test message. The secrets never leave the server again — only their last four characters are shown
 
 ### Security & backup
 
@@ -53,7 +55,7 @@ Both stay switched off while their environment variables are missing — the but
 - **Bilingual interface** (German, Russian)
 - **Installable as a PWA**; the app shell and the most recently loaded data are available offline
 - **Automatic background refresh** (default: every 30 minutes) plus manual refresh, for a single feed or all of them
-- Duplicate detection, per-feed error display (⚠ with details), at most 30 stored articles per feed
+- Per-feed error display (⚠ with details). 30 read articles are kept per feed; unread and saved ones stay (hard cap at 300 per feed)
 - SQLite via the **built-in `node:sqlite`** — no native dependencies, no compiling (ideal for a Raspberry Pi)
 
 ## Requirements
@@ -82,6 +84,8 @@ The database lives in the `./data` folder and survives container restarts and up
 
 ## Configuration (environment variables)
 
+Telegram, the AI key and the briefing schedule can also be set **in the gear menu under "Set up integrations"** — visible once you are signed in. The environment variables seed these values on the very first start; after that the menu wins (the same behaviour as `FEEDBOARD_PASSWORD`). Starting with no environment variables at all works fine — set everything up in the menu.
+
 | Variable                 | Default               | Meaning                                                                                                     |
 | ------------------------ | --------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `PORT`                   | `8321`                | HTTP port                                                                                                     |
@@ -89,13 +93,13 @@ The database lives in the `./data` folder and survives container restarts and up
 | `DB_PATH`                | `./data/feedboard.db` | Path to the SQLite file                                                                                       |
 | `DEV_ASSETS`             | –                     | `1` = determine the asset version from file timestamps on every page request (for live frontend development)   |
 | `FEEDBOARD_PASSWORD`     | –                     | Creates the password on the very first start. Afterwards the one set in the menu applies. Empty = editing stays open. |
-| `ANTHROPIC_API_KEY`      | –                     | Enables summary, translation and briefing                                                                     |
-| `ANTHROPIC_MODEL`        | `claude-opus-5`       | Claude model to use                                                                                           |
-| `TELEGRAM_BOT_TOKEN`     | –                     | Bot token for sharing articles (together with `TELEGRAM_CHAT_ID`)                                             |
-| `TELEGRAM_CHAT_ID`       | –                     | Target chat for shared articles                                                                               |
-| `BRIEFING_CRON`          | –                     | Schedule for the automatic briefing, e.g. `0 7 * * *` for 7 a.m. daily. Empty = off. Needs AI and Telegram.    |
-| `BRIEFING_LANG`          | `de`                  | Language of the scheduled briefing (`de`, `en`, `ru`)                                                         |
-| `BRIEFING_HOURS`         | `24`                  | How far the scheduled briefing looks back, in hours (1–168)                                                    |
+| `ANTHROPIC_API_KEY`      | –                     | Seed value for the AI key (summary, translation, briefing). Afterwards the menu applies                        |
+| `ANTHROPIC_MODEL`        | `claude-opus-5`       | Seed value for the Claude model. Afterwards the menu applies                                                  |
+| `TELEGRAM_BOT_TOKEN`     | –                     | Seed value for the bot token (with `TELEGRAM_CHAT_ID`). Afterwards the menu applies                                             |
+| `TELEGRAM_CHAT_ID`       | –                     | Seed value for the target chat. Afterwards the menu applies                                                                               |
+| `BRIEFING_CRON`          | –                     | Seed value for the briefing schedule, e.g. `0 7 * * *`. Empty = off. Needs AI and Telegram. Afterwards the menu applies    |
+| `BRIEFING_LANG`          | `de`                  | Seed value for the briefing language (`de`, `en`, `ru`). Afterwards the menu applies                                                         |
+| `BRIEFING_HOURS`         | `24`                  | Seed value for the briefing look-back in hours (1–168). Afterwards the menu applies                                                    |
 
 For Docker, the optional values are best kept in a `.env` next to `docker-compose.yml` — they are already passed through there.
 
@@ -142,6 +146,9 @@ For Docker, the optional values are best kept in a `.env` next to `docker-compos
 | `GET /api/search?q=…`           | Full-text search across all articles (max. 100 hits)   |
 | `GET /api/settings/mute`        | Read the mute words                                    |
 | `PUT /api/settings/mute`        | Set the mute words `{ words: […] }`                    |
+| `GET /api/settings/integrations` | Read integrations (signed in only; no secrets)        |
+| `PUT /api/settings/integrations` | Set integrations (signed in only; omitted fields stay) |
+| `POST /api/settings/integrations/test-telegram` | Send a test message (signed in only)  |
 | `GET /api/favicon?host=…`       | Serve a favicon from the local cache                   |
 
 ### Full text, AI and sharing

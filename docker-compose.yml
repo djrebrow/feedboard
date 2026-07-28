@@ -16,6 +16,10 @@ services:
       - DEV_ASSETS=1
       # Optional, aus einer .env-Datei neben dieser docker-compose.yml.
       # Leer gelassen bleibt die jeweilige Funktion einfach aus.
+      #
+      # Telegram, KI-Schlüssel und Briefing sind auch im Zahnrad-Menü unter
+      # „Zugänge einrichten" setzbar (nach der Anmeldung). Die Werte hier gelten
+      # nur beim allerersten Start; danach hat das Menü Vorrang.
       - FEEDBOARD_PASSWORD=${FEEDBOARD_PASSWORD:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-}
