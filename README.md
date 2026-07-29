@@ -4,27 +4,27 @@
 
 Selbstgehostetes Dashboard für RSS-/Atom-Feeds und öffentliche Telegram-Kanäle. Rubriken und Quellen werden vollständig über die Oberfläche angelegt, umbenannt, sortiert und gelöscht — keine YAML-Konfiguration nötig.
 
-![Rubrik mit ihren Feeds — mehrspaltig wie eine Zeitungsseite](docs/screenshots/01-rubrik.png)
+![Rubrik mit ihren Feeds — mehrspaltig wie eine Zeitungsseite](docs/screenshots/de/01-rubrik.png)
 
 ## Ansichten
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshots/02-start.png" alt="Startseite mit Rubrik-Kacheln"><br><sub><b>Startseite</b> — jede Rubrik eine Kachel, mit Ungelesen-Zähler</sub></td>
-<td width="50%"><img src="docs/screenshots/03-dunkel.png" alt="Dieselbe Ansicht im dunklen Design"><br><sub><b>Dunkles Design</b> — OLED-Schwarz, nicht Dunkelgrau</sub></td>
+<td width="50%"><img src="docs/screenshots/de/02-start.png" alt="Startseite mit Rubrik-Kacheln"><br><sub><b>Startseite</b> — jede Rubrik eine Kachel, mit Ungelesen-Zähler</sub></td>
+<td width="50%"><img src="docs/screenshots/de/03-dunkel.png" alt="Dieselbe Ansicht im dunklen Design"><br><sub><b>Dunkles Design</b> — OLED-Schwarz, nicht Dunkelgrau</sub></td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/07-suche.png" alt="Volltextsuche mit Treffern"><br><sub><b>Suche</b> — über Titel, Kurzfassung, nachgeladenen Volltext und KI-Kurzfassung</sub></td>
-<td><img src="docs/screenshots/04-feeds.png" alt="Zustand aller Feeds"><br><sub><b>Zustand der Feeds</b> — Häufigkeit, letzter Erfolg, Fehler, Auto-Pause</sub></td>
+<td><img src="docs/screenshots/de/07-suche.png" alt="Volltextsuche mit Treffern"><br><sub><b>Suche</b> — über Titel, Kurzfassung, nachgeladenen Volltext und KI-Kurzfassung</sub></td>
+<td><img src="docs/screenshots/de/04-feeds.png" alt="Zustand aller Feeds"><br><sub><b>Zustand der Feeds</b> — Häufigkeit, letzter Erfolg, Fehler, Auto-Pause</sub></td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/05-regeln.png" alt="Regeln für neue Artikel"><br><sub><b>Regeln</b> — als Satz lesbar, einzeln abschaltbar</sub></td>
-<td><img src="docs/screenshots/06-zugaenge.png" alt="Zugänge einrichten"><br><sub><b>Zugänge</b> — KI-Anbieter, Modell, Briefing-Zeitplan; das Fragezeichen klappt eine Anleitung auf</sub></td>
+<td><img src="docs/screenshots/de/05-regeln.png" alt="Regeln für neue Artikel"><br><sub><b>Regeln</b> — als Satz lesbar, einzeln abschaltbar</sub></td>
+<td><img src="docs/screenshots/de/06-zugaenge.png" alt="Zugänge einrichten"><br><sub><b>Zugänge</b> — KI-Anbieter, Modell, Briefing-Zeitplan; das Fragezeichen klappt eine Anleitung auf</sub></td>
 </tr>
 </table>
 
 <p align="center">
-  <img src="docs/screenshots/08-telefon.png" alt="Feedboard auf einem Telefon" width="320"><br>
+  <img src="docs/screenshots/de/08-telefon.png" alt="Feedboard auf einem Telefon" width="320"><br>
   <sub>Auf dem Telefon als PWA — dieselbe Oberfläche, umbrechende Werkzeugleiste</sub>
 </p>
 
