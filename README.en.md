@@ -4,6 +4,32 @@
 
 Self-hosted dashboard for RSS/Atom feeds and public Telegram channels. Categories and sources are created, renamed, reordered and deleted entirely through the interface — no YAML configuration required.
 
+![A category with its feeds — multi-column like a newspaper page](docs/screenshots/02-rubrik-dunkel.png)
+
+## Views
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/01-start-dunkel.png" alt="Start page with category tiles"><br><sub><b>Start page</b> — one tile per category, with an unread counter</sub></td>
+<td width="50%"><img src="docs/screenshots/03-rubrik-hell.png" alt="The same category in the light theme"><br><sub><b>Light and dark</b> — dark is OLED black, not dark grey</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/07-suche.png" alt="Full-text search with results"><br><sub><b>Search</b> — across title, summary, fetched full text and AI summary</sub></td>
+<td><img src="docs/screenshots/04-feeds.png" alt="Health of all feeds"><br><sub><b>Feed health</b> — frequency, last success, errors, auto-pause</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/05-regeln.png" alt="Rules for incoming articles"><br><sub><b>Rules</b> — readable as a sentence, switchable one by one</sub></td>
+<td><img src="docs/screenshots/06-zugaenge.png" alt="Setting up integrations"><br><sub><b>Integrations</b> — AI provider, model, briefing schedule; the question mark unfolds instructions</sub></td>
+</tr>
+</table>
+
+<p align="center">
+  <img src="docs/screenshots/08-telefon.png" alt="Feedboard on a phone" width="320"><br>
+  <sub>On a phone as a PWA — the same interface, with a wrapping toolbar</sub>
+</p>
+
+<sub>Screenshots show the German interface; English and Russian are built in.</sub>
+
 ## Features
 
 ### Managing sources

@@ -98,6 +98,12 @@ input[type='url']:focus {
 
 .hidden { display: none !important; }
 
+/* Ein Element mit hidden bleibt verborgen — auch wenn seine Klasse ein display
+   setzt. Die Vorgabe des Browsers (display:none) verliert sonst gegen jede
+   Klassenregel, was hier mehrfach passiert ist und zuletzt die Basis-URL bei
+   jedem KI-Anbieter zeigte. Deshalb einmal zentral statt je Klasse. */
+[hidden] { display: none !important; }
+
 /* Hintergrund still, solange ein Fenster offen ist */
 body.dialog-open { overflow: hidden; }
 
@@ -169,7 +175,6 @@ body.dialog-open { overflow: hidden; }
 #btn-settings[aria-expanded='true'] { border-color: var(--accent); color: var(--accent); }
 
 .dialog { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px; }
-.dialog[hidden] { display: none; }
 
 .dialog-backdrop { position: absolute; inset: 0; background: var(--backdrop); animation: fade-in 0.15s ease-out; }
 
@@ -264,7 +269,6 @@ body.dialog-open { overflow: hidden; }
 .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .settings-section { display: flex; flex-direction: column; gap: 7px; }
 /* display: flex würde sonst das hidden-Attribut aushebeln (KI, Abmelden) */
-.settings-section[hidden] { display: none; }
 .settings-label { font-size: 12px; color: var(--muted); font-weight: 600; }
 
 .seg {
@@ -1134,7 +1138,6 @@ body.edit-mode .tile-badge { display: none; }
   align-items: flex-end;
   justify-content: center;
 }
-.preview-sheet[hidden] { display: none; }
 .preview-sheet-backdrop {
   position: absolute;
   inset: 0;
@@ -1381,7 +1384,6 @@ body.font-large .search-result .article-title { font-size: 16.5px; }
   cursor: pointer;
 }
 .settings-clear:hover { color: var(--accent); }
-.settings-clear[hidden] { display: none; }
 
 /* Fragezeichen an der Beschriftung: klappt die Anleitung unter dem Feld auf */
 .help-btn {
