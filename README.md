@@ -4,14 +4,14 @@
 
 Selbstgehostetes Dashboard für RSS-/Atom-Feeds und öffentliche Telegram-Kanäle. Rubriken und Quellen werden vollständig über die Oberfläche angelegt, umbenannt, sortiert und gelöscht — keine YAML-Konfiguration nötig.
 
-![Rubrik mit ihren Feeds — mehrspaltig wie eine Zeitungsseite](docs/screenshots/02-rubrik-dunkel.png)
+![Rubrik mit ihren Feeds — mehrspaltig wie eine Zeitungsseite](docs/screenshots/01-rubrik.png)
 
 ## Ansichten
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshots/01-start-dunkel.png" alt="Startseite mit Rubrik-Kacheln"><br><sub><b>Startseite</b> — jede Rubrik eine Kachel, mit Ungelesen-Zähler</sub></td>
-<td width="50%"><img src="docs/screenshots/03-rubrik-hell.png" alt="Dieselbe Rubrik im hellen Design"><br><sub><b>Hell und dunkel</b> — dunkel ist OLED-Schwarz, nicht Dunkelgrau</sub></td>
+<td width="50%"><img src="docs/screenshots/02-start.png" alt="Startseite mit Rubrik-Kacheln"><br><sub><b>Startseite</b> — jede Rubrik eine Kachel, mit Ungelesen-Zähler</sub></td>
+<td width="50%"><img src="docs/screenshots/03-dunkel.png" alt="Dieselbe Ansicht im dunklen Design"><br><sub><b>Dunkles Design</b> — OLED-Schwarz, nicht Dunkelgrau</sub></td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/07-suche.png" alt="Volltextsuche mit Treffern"><br><sub><b>Suche</b> — über Titel, Kurzfassung, nachgeladenen Volltext und KI-Kurzfassung</sub></td>

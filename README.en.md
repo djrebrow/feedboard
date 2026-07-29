@@ -4,14 +4,14 @@
 
 Self-hosted dashboard for RSS/Atom feeds and public Telegram channels. Categories and sources are created, renamed, reordered and deleted entirely through the interface — no YAML configuration required.
 
-![A category with its feeds — multi-column like a newspaper page](docs/screenshots/02-rubrik-dunkel.png)
+![A category with its feeds — multi-column like a newspaper page](docs/screenshots/01-rubrik.png)
 
 ## Views
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshots/01-start-dunkel.png" alt="Start page with category tiles"><br><sub><b>Start page</b> — one tile per category, with an unread counter</sub></td>
-<td width="50%"><img src="docs/screenshots/03-rubrik-hell.png" alt="The same category in the light theme"><br><sub><b>Light and dark</b> — dark is OLED black, not dark grey</sub></td>
+<td width="50%"><img src="docs/screenshots/02-start.png" alt="Start page with category tiles"><br><sub><b>Start page</b> — one tile per category, with an unread counter</sub></td>
+<td width="50%"><img src="docs/screenshots/03-dunkel.png" alt="The same view in the dark theme"><br><sub><b>Dark theme</b> — OLED black, not dark grey</sub></td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/07-suche.png" alt="Full-text search with results"><br><sub><b>Search</b> — across title, summary, fetched full text and AI summary</sub></td>
