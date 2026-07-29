@@ -23,7 +23,7 @@
   "integrations_label": "Zugänge einrichten",
   "tg_token_label": "Telegram Bot-Token",
   "tg_chat_label": "Telegram Chat-ID",
-  "ai_key_label": "KI-Schlüssel",
+  "ai_key_label": "API-Schlüssel",
   "ai_model_label": "KI-Modell",
   "briefing_hours_label": "Rückblick (Std.)",
   "briefing_lang_label": "Sprache",
@@ -254,5 +254,13 @@
   "err_ai_timeout": "Der KI-Dienst hat nicht rechtzeitig geantwortet.",
   "err_ai_model_unknown": "Der Dienst kennt dieses Modell nicht: {model}",
   "err_ai_models_failed": "Die Modellliste ließ sich nicht laden.",
-  "integrations_unavailable": "Zugänge nicht abrufbar ({error}) — unten stehen nur Vorgaben."
+  "integrations_unavailable": "Zugänge nicht abrufbar ({error}) — unten stehen nur Vorgaben.",
+  "help_title": "Anleitung anzeigen",
+  "help_key_link": "Schlüssel beim Anbieter erzeugen:",
+  "help_tg_token": "In Telegram @BotFather anschreiben.\n/newbot senden.\nNamen und Benutzernamen vergeben — der Benutzername muss auf „bot“ enden.\nBotFather antwortet mit dem Token (etwa 123456789:AA…). Diesen hier einfügen und speichern.",
+  "help_tg_chat": "Dem eigenen Bot in Telegram irgendetwas schreiben — vorher darf er nicht antworten.\nIm Browser https://api.telegram.org/bot<TOKEN>/getUpdates aufrufen und <TOKEN> durch den Bot-Token ersetzen.\nIn der Antwort steht \"chat\":{\"id\":…}. Diese Zahl ist die Chat-ID.\nFür einen Kanal den Bot dort als Administrator hinzufügen; die ID beginnt dann mit -100.",
+  "help_ai_key": "Beim Anbieter anmelden (Adresse unten).\nIm Entwicklerbereich einen neuen Schlüssel erzeugen.\nDer Schlüssel wird meist nur einmal angezeigt — gleich hier einfügen und speichern.\nDanach „Liste laden“ drücken, um die Modelle des Anbieters zu holen.",
+  "help_ai_base": "Die Adresse muss auf /v1 enden, etwa http://localhost:11434/v1 für Ollama.\nLäuft Feedboard in Docker, ist der eigene Rechner nicht „localhost“, sondern host.docker.internal.\nDer Endpunkt muss /chat/completions und /models im Stil von OpenAI anbieten — Ollama, LM Studio und vLLM tun das.\nEin Schlüssel ist dort meist nicht nötig; das Feld bleibt deshalb ausgeblendet.",
+  "help_ai_model": "„Liste laden“ holt die Modelle beim Anbieter. Dafür muss der Schlüssel gespeichert sein.\nNach einem Anbieterwechsel erst speichern, dann laden — sonst käme die Liste des alten Anbieters.\nSteht das gewünschte Modell nicht in der Liste, „anderes Modell …“ wählen und den Namen eintippen.",
+  "help_briefing": "Die Uhrzeit gilt in der Zeitzone des Servers — sie steht neben „Briefing um“, nicht die des Browsers.\nOhne gewählten Tag läuft nichts, ohne Uhrzeit ist das Briefing aus.\n„Rückblick“ bestimmt, wie weit zurück ungelesene Artikel einfließen (1 bis 168 Stunden).\nDas Briefing braucht einen eingerichteten KI-Zugang und Telegram."
 }

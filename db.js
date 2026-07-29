@@ -627,7 +627,7 @@ const BACKUP_VERSION = 1;
 // sonst Zugangsdaten weitertragen, und eine eingespielte Sicherung würde einen
 // aus der eigenen Installation aussperren.
 //
-// Dasselbe gilt für Bot-Token und KI-Schlüssel: eine Sicherungsdatei landet
+// Dasselbe gilt für Bot-Token und API-Schlüssel: eine Sicherungsdatei landet
 // leicht in einer Cloud oder in fremden Händen. Sie bleiben beim Einspielen
 // erhalten (siehe `keep` weiter unten), reisen aber nicht mit.
 const SECRET_SETTINGS = new Set(['password_hash', 'session_secret', 'cfg_telegram_bot_token']);

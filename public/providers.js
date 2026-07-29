@@ -15,6 +15,7 @@
   const ANBIETER = [
     {
       id: 'anthropic',
+      konsole: 'https://console.anthropic.com/settings/keys',
       name: 'Anthropic (Claude)',
       api: 'anthropic',
       base: 'https://api.anthropic.com/v1',
@@ -23,6 +24,7 @@
     },
     {
       id: 'openai',
+      konsole: 'https://platform.openai.com/api-keys',
       name: 'OpenAI',
       api: 'openai',
       base: 'https://api.openai.com/v1',
@@ -31,6 +33,7 @@
     },
     {
       id: 'google',
+      konsole: 'https://aistudio.google.com/apikey',
       name: 'Google AI Studio',
       api: 'openai',
       base: 'https://generativelanguage.googleapis.com/v1beta/openai',
@@ -39,6 +42,7 @@
     },
     {
       id: 'groq',
+      konsole: 'https://console.groq.com/keys',
       name: 'Groq',
       api: 'openai',
       base: 'https://api.groq.com/openai/v1',
@@ -47,6 +51,7 @@
     },
     {
       id: 'openrouter',
+      konsole: 'https://openrouter.ai/keys',
       name: 'OpenRouter',
       api: 'openai',
       base: 'https://openrouter.ai/api/v1',
@@ -55,6 +60,7 @@
     },
     {
       id: 'mistral',
+      konsole: 'https://console.mistral.ai/api-keys',
       name: 'Mistral',
       api: 'openai',
       base: 'https://api.mistral.ai/v1',
@@ -63,6 +69,7 @@
     },
     {
       id: 'deepseek',
+      konsole: 'https://platform.deepseek.com/api_keys',
       name: 'DeepSeek',
       api: 'openai',
       base: 'https://api.deepseek.com/v1',

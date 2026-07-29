@@ -21,7 +21,7 @@ const { fehler, toResponse } = require('./errors');
 const PORT = Number(process.env.PORT) || 8321;
 const FETCH_INTERVAL_MINUTES = clampInterval(process.env.FETCH_INTERVAL_MINUTES, 30);
 
-// Telegram, KI-Schlüssel und Briefing-Zeitplan liegen in der Datenbank und
+// Telegram, API-Schlüssel und Briefing-Zeitplan liegen in der Datenbank und
 // sind im Zahnrad-Menü änderbar; die Umgebungsvariablen legen sie beim ersten
 // Start an. Siehe config.js.
 // Erst Bestehendes aus älteren Ständen übernehmen (nur Claude, cron-Zeitplan),
@@ -482,7 +482,7 @@ app.put('/api/settings/mute', auth.protect, asyncHandler(async (req, res) => {
 // API: Zugänge (Telegram, KI, Briefing-Zeitplan)
 // ---------------------------------------------------------------------------
 // Durchweg angemeldet: Lesen ist bei Feedboard sonst offen, Bot-Token und
-// KI-Schlüssel gehen aber niemanden etwas an. Auch angemeldet werden die
+// API-Schlüssel gehen aber niemanden etwas an. Auch angemeldet werden die
 // Geheimnisse nie zurückgegeben — nur ob sie gesetzt sind und ihre letzten
 // vier Zeichen zum Wiedererkennen.
 

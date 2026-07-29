@@ -37,7 +37,7 @@ Beide Funktionen sind aus, solange sie nicht eingerichtet sind — die Knöpfe e
 - **Tages-Briefing**: alle ungelesenen Artikel der letzten 24 Stunden nach Themen gebündelt (Einstellungsfenster, Bereich „Zugänge"); wird sechs Stunden lang wiederverwendet
 - **Artikel per Telegram teilen** — an den eigenen Chat über einen Bot
 - **Geplantes Briefing per Telegram**: Uhrzeit und Wochentage im Einstellungsfenster wählen, den Rest erledigt Feedboard. Die Uhrzeit gilt in der Zeitzone des Servers, sie steht neben dem Feld
-- **Einrichtung im Fenster**: Bot-Token, Chat-ID, KI-Anbieter samt Schlüssel und Modell sowie das Briefing (Uhrzeit und Wochentage) sind nach der Anmeldung unter „Zugänge" setzbar, samt Knopf für eine Testnachricht. Die Geheimnisse verlassen den Server nie wieder — angezeigt werden nur ihre letzten vier Zeichen
+- **Einrichtung im Fenster**: Bot-Token, Chat-ID, KI-Anbieter samt Schlüssel und Modell sowie das Briefing (Uhrzeit und Wochentage) sind nach der Anmeldung unter „Zugänge" setzbar, samt Knopf für eine Testnachricht. Ein Fragezeichen an jedem Feld klappt eine kurze Anleitung auf — beim API-Schlüssel mit der Adresse des gerade gewählten Anbieters. Die Geheimnisse verlassen den Server nie wieder — angezeigt werden nur ihre letzten vier Zeichen
 
 ### Sicherheit & Sicherung
 

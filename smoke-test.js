@@ -388,6 +388,43 @@ async function run() {
   check('KI: fehlender Schlüssel wird als solcher angezeigt',
     doc.getElementById('clear-ai-key').hidden === true && !doc.getElementById('input-ai-key').placeholder.includes('····'));
 
+  // Anleitungen an den Feldern
+  check('Hilfe: sechs Fragezeichen mit je einem Block',
+    doc.querySelectorAll('.help-btn').length === 6
+    && [...doc.querySelectorAll('.help-btn')].every((k) => doc.getElementById(`help-${k.dataset.help}`)));
+  const hilfeKnopf = doc.querySelector('.help-btn[data-help="tg_token"]');
+  const hilfeBlock = doc.getElementById('help-tg_token');
+  check('Hilfe: zunächst zugeklappt', hilfeBlock.hidden && hilfeKnopf.getAttribute('aria-expanded') === 'false');
+  hilfeKnopf.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  check('Hilfe: klappt mit nummerierten Schritten auf',
+    !hilfeBlock.hidden && hilfeKnopf.getAttribute('aria-expanded') === 'true'
+    && hilfeBlock.querySelectorAll('ol li').length === 4);
+  check('Hilfe: Schritt eins nennt den BotFather',
+    hilfeBlock.querySelector('li').textContent.includes('@BotFather'));
+
+  const anbieterFeld2 = doc.getElementById('select-ai-provider');
+  anbieterFeld2.value = 'anthropic';
+  anbieterFeld2.dispatchEvent(new window.Event('change', { bubbles: true }));
+  const schluesselKnopf = doc.querySelector('.help-btn[data-help="ai_key"]');
+  schluesselKnopf.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  check('Hilfe: Schlüssel-Anleitung verlinkt den Anbieter',
+    doc.querySelector('#help-ai_key a')?.getAttribute('href') === 'https://console.anthropic.com/settings/keys');
+  anbieterFeld2.value = 'groq';
+  anbieterFeld2.dispatchEvent(new window.Event('change', { bubbles: true }));
+  check('Hilfe: die Adresse folgt dem Anbieter',
+    doc.querySelector('#help-ai_key a')?.getAttribute('href') === 'https://console.groq.com/keys');
+  anbieterFeld2.value = 'anthropic';
+  anbieterFeld2.dispatchEvent(new window.Event('change', { bubbles: true }));
+
+  check('Hilfe: Hinweise ohne Nummern beim Briefing',
+    (() => {
+      const k = doc.querySelector('.help-btn[data-help="briefing"]');
+      k.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+      return doc.querySelectorAll('#help-briefing ul li').length === 4;
+    })());
+  check('Beschriftung heißt API-Schlüssel, nicht KI-Schlüssel',
+    doc.querySelector('label[for="input-ai-key"] span').textContent === 'API-Schlüssel');
+
   // Wochentage tragen kein data-i18n und blieben früher auf der alten Sprache
   // (Russisch, weil "Mo" auf Deutsch und Englisch gleich hieße)
   doc.querySelector('#seg-lang [data-lang="ru"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
@@ -396,6 +433,14 @@ async function run() {
     doc.querySelector('#briefing-days .weekday').textContent.includes('Пн'));
   check('Sprachwechsel: auch der eigene Endpunkt im Anbieter-Menü',
     [...doc.getElementById('select-ai-provider').options].pop().textContent === 'Свой адрес API');
+  // Blieb frueher in der Sprache stehen, die beim Laden des Bereichs galt
+  check('Sprachwechsel: Platzhalter des Bot-Token-Felds',
+    doc.getElementById('input-tg-token').placeholder.includes('задано'));
+  // Blieb frueher stehen, bis zufaellig eine neue Aktion sie ersetzte
+  check('Sprachwechsel: Statuszeile wird neu erzeugt',
+    doc.getElementById('integrations-status').textContent === "Провайдер изменён — сохраните и загрузите список моделей.");
+  check('Sprachwechsel: offene Anleitung wird neu gezeichnet',
+    doc.querySelector('#help-tg_token li').textContent.includes('@BotFather в Telegram'));
   doc.querySelector('#seg-lang [data-lang="de"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 120));
 

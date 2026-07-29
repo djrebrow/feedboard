@@ -269,6 +269,13 @@
     }, isError ? 5000 : 2800);
   }
 
+  // Fehlermeldung in der gerade gewaehlten Sprache. Ohne Herkunft (etwa ein
+  // Netzfehler) bleibt der urspruengliche Text.
+  function fehlerSatz(error) {
+    if (error && (error.data || error.status)) return fehlerText(error.data, error.status);
+    return error?.message || '';
+  }
+
   async function api(path, options = {}) {
     const response = await fetch(path, {
       headers: { 'Content-Type': 'application/json' },
@@ -283,7 +290,12 @@
         state.authenticated = false;
         openLoginSheet();
       }
-      throw new Error(fehlerText(data, response.status));
+      const fehler = new Error(fehlerText(data, response.status));
+      // Schluessel und Werte mitschicken: nur damit laesst sich die Meldung
+      // nach einem Sprachwechsel neu erzeugen.
+      fehler.data = data;
+      fehler.status = response.status;
+      throw fehler;
     }
     return data;
   }
@@ -1090,7 +1102,7 @@
     btnPassword.hidden = locked;
     btnPassword.textContent = features.auth ? t('password_change') : t('password_set');
 
-    // Bot-Token und KI-Schlüssel gehören nur Angemeldeten. Der Server lehnt
+    // Bot-Token und API-Schlüssel gehören nur Angemeldeten. Der Server lehnt
     // unangemeldete Zugriffe ohnehin ab — das hier hält sie erst gar nicht hin.
     const darfEinrichten = !locked;
     settingsIntegrations.hidden = !darfEinrichten;
@@ -1188,11 +1200,70 @@
     if (inputBriefingTime.value && !gewaehlteTage().length) renderWeekdays([0, 1, 2, 3, 4, 5, 6]);
   });
 
+  // ---- Anleitungen an den Feldern -----------------------------------------
+  // Der Text steht im Wörterbuch, eine Zeile je Punkt; die Adresse zum
+  // Schlüssel in providers.js, weil sie nicht übersetzt wird. Gezeichnet wird
+  // erst beim Aufklappen — und beim Sprachwechsel neu.
+
+  // Der Reihe nach abzuarbeiten (nummeriert) oder lose Hinweise (Punkte)?
+  const HILFE_ANLEITUNG = new Set(['tg_token', 'tg_chat', 'ai_key']);
+
+  function hilfeInhalt(thema) {
+    const zeilen = t(`help_${thema}`).split('\n').filter(Boolean);
+    const liste = HILFE_ANLEITUNG.has(thema) ? 'ol' : 'ul';
+    let html = `<${liste}>${zeilen.map((z) => `<li>${esc(z)}</li>`).join('')}</${liste}>`;
+    // Beim Schlüssel hängt der Weg am Anbieter — die Adresse wechselt mit ihm.
+    if (thema === 'ai_key') {
+      const url = aktuellerAnbieter().konsole;
+      if (url) {
+        html += `<p class="field-help-link">${esc(t('help_key_link'))} `
+          + `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(url)}</a></p>`;
+      }
+    }
+    return html;
+  }
+
+  function zeichneHilfe(thema) {
+    const box = document.getElementById(`help-${thema}`);
+    if (box && !box.hidden) box.innerHTML = hilfeInhalt(thema);
+  }
+
+  function alleOffenenHilfenNeu() {
+    document.querySelectorAll('.field-help').forEach((box) => {
+      if (!box.hidden) box.innerHTML = hilfeInhalt(box.id.replace(/^help-/, ''));
+    });
+  }
+
+  document.querySelectorAll('.help-btn').forEach((knopf) => {
+    knopf.addEventListener('click', (event) => {
+      // Der Knopf sitzt in einem <label>; ohne das hier bekäme auch das Feld
+      // daneben den Klick ab.
+      event.preventDefault();
+      const thema = knopf.dataset.help;
+      const box = document.getElementById(`help-${thema}`);
+      const auf = box.hidden;
+      if (auf) box.innerHTML = hilfeInhalt(thema);
+      box.hidden = !auf;
+      knopf.setAttribute('aria-expanded', String(auf));
+      knopf.classList.toggle('active', auf);
+    });
+  });
+
   // ---- KI-Anbieter ---------------------------------------------------------
   // Die Anbieterliste kommt vom Server (public/providers.js teilen sich beide),
   // die Modelle holt der Server auf Anforderung beim Anbieter selbst.
 
-  let aiZustand = null; // zuletzt vom Server gemeldeter Stand
+  let aiZustand = null;       // zuletzt vom Server gemeldeter Stand
+  let telegramZustand = null; // desgleichen fuer Telegram — fuer den Platzhalter
+
+  // Eigene Funktion, damit der Platzhalter auch beim Sprachwechsel neu
+  // entsteht. Vorher wurde er nur einmal beim Laden gesetzt und blieb danach
+  // in der Sprache stehen, die dabei zufaellig galt.
+  function tokenPlatzhalter() {
+    inputTgToken.placeholder = telegramZustand?.token_set
+      ? t('integrations_keep', { hint: telegramZustand.token_hint })
+      : t('integrations_unset');
+  }
 
   function aktuellerAnbieter() {
     return FeedboardProviders.anbieter(selectAiProvider.value);
@@ -1252,7 +1323,8 @@
     const anbieter = aktuellerAnbieter();
     const vorschlag = aiZustand?.provider === anbieter.id ? aiZustand.model : anbieter.standard;
     renderModels(vorschlag ? [{ id: vorschlag, name: vorschlag }] : [], vorschlag);
-    setIntegrationsStatus(t('ai_models_hint'), '');
+    setIntegrationsStatus(() => t('ai_models_hint'), '');
+    zeichneHilfe('ai_key'); // die Adresse zum Schluessel gehoert zum Anbieter
   });
 
   selectAiModel.addEventListener('change', () => {
@@ -1264,23 +1336,23 @@
   // erst nach dem Speichern sinnvoll.
   async function loadModels() {
     btnAiModels.disabled = true;
-    setIntegrationsStatus(t('ai_models_loading'), '');
+    setIntegrationsStatus(() => t('ai_models_loading'), '');
     try {
       const antwort = await api('/api/settings/ai-models');
       // Der Server fragt den gespeicherten Anbieter — wer oben gerade einen
       // anderen ausgewählt hat, bekäme sonst wortlos die falsche Liste.
       if (antwort.provider !== selectAiProvider.value) {
-        setIntegrationsStatus(t('ai_models_hint'), 'error');
+        setIntegrationsStatus(() => t('ai_models_hint'), 'error');
         return;
       }
       if (!antwort.models.length) {
-        setIntegrationsStatus(t('ai_models_empty'), 'error');
+        setIntegrationsStatus(() => t('ai_models_empty'), 'error');
         return;
       }
       renderModels(antwort.models, aktuellesModell() || aiZustand?.model);
-      setIntegrationsStatus(t('ai_models_ok', { n: antwort.models.length }), 'ok');
+      setIntegrationsStatus(() => t('ai_models_ok', { n: antwort.models.length }), 'ok');
     } catch (error) {
-      setIntegrationsStatus(error.message, 'error');
+      setIntegrationsStatus(() => fehlerSatz(error), 'error');
     } finally {
       btnAiModels.disabled = false;
     }
@@ -1291,6 +1363,9 @@
   // Sprache stehen.
   function aktualisiereZugangsTexte() {
     if (briefingDays.children.length) renderWeekdays(gewaehlteTage());
+    tokenPlatzhalter();
+    statusNeuZeichnen();
+    alleOffenenHilfenNeu();
     if (!selectAiProvider.options.length) return;
     const modell = aktuellesModell();
     const bekannt = [...selectAiModel.options]
@@ -1323,9 +1398,8 @@
 
     inputTgToken.value = '';
     inputAiKey.value = '';
-    inputTgToken.placeholder = telegram.token_set
-      ? t('integrations_keep', { hint: telegram.token_hint })
-      : t('integrations_unset');
+    telegramZustand = telegram;
+    tokenPlatzhalter();
     clearTgToken.hidden = !telegram.token_set;
 
     inputTgChat.value = telegram.chat_id || '';
@@ -1340,13 +1414,23 @@
     if (briefing.hours) inputBriefingHours.value = briefing.hours;
     if (briefing.lang) selectBriefingLang.value = briefing.lang;
 
-    setIntegrationsStatus(scheduleText(data.schedule), '');
+    setIntegrationsStatus(() => scheduleText(data.schedule), '');
   }
 
-  function setIntegrationsStatus(text, art) {
-    integrationsStatus.textContent = text || '';
+  // Gespeichert wird nicht der Satz, sondern was ihn erzeugt hat: sonst bliebe
+  // die Meldung nach einem Sprachwechsel in der alten Sprache stehen, bis
+  // zufällig eine neue Aktion sie ersetzt.
+  let letzterStatus = null;
+
+  function setIntegrationsStatus(erzeuger, art) {
+    letzterStatus = erzeuger ? { erzeuger, art } : null;
+    integrationsStatus.textContent = erzeuger ? erzeuger() : '';
     integrationsStatus.classList.toggle('is-error', art === 'error');
     integrationsStatus.classList.toggle('is-ok', art === 'ok');
+  }
+
+  function statusNeuZeichnen() {
+    if (letzterStatus) integrationsStatus.textContent = letzterStatus.erzeuger();
   }
 
   async function loadIntegrations() {
@@ -1357,7 +1441,7 @@
     } catch (error) {
       // Deutlich sagen, dass unten nur Vorgaben stehen — sonst hält man sie für
       // den gespeicherten Stand.
-      setIntegrationsStatus(t('integrations_unavailable', { error: error.message }), 'error');
+      setIntegrationsStatus(() => t('integrations_unavailable', { error: fehlerSatz(error) }), 'error');
     }
   }
 
@@ -1382,10 +1466,10 @@
     try {
       const antwort = await api('/api/settings/integrations', { method: 'PUT', body: JSON.stringify(daten) });
       applyIntegrations(antwort);
-      setIntegrationsStatus(`${t('integrations_saved')} ${scheduleText(antwort.schedule)}`.trim(), 'ok');
+      setIntegrationsStatus(() => `${t('integrations_saved')} ${scheduleText(antwort.schedule)}`.trim(), 'ok');
       await loadBoard(); // KI- und Teilen-Knöpfe hängen an den Zugängen
     } catch (error) {
-      setIntegrationsStatus(error.message, 'error');
+      setIntegrationsStatus(() => fehlerSatz(error), 'error');
     } finally {
       btnIntegrationsSave.disabled = false;
     }
@@ -1399,18 +1483,18 @@
       }));
       await loadBoard();
     } catch (error) {
-      setIntegrationsStatus(error.message, 'error');
+      setIntegrationsStatus(() => fehlerSatz(error), 'error');
     }
   }
 
   async function testTelegram() {
     btnIntegrationsTest.disabled = true;
-    setIntegrationsStatus('…', '');
+    setIntegrationsStatus(() => '…', '');
     try {
       await api('/api/settings/integrations/test-telegram', { method: 'POST' });
-      setIntegrationsStatus(t('integrations_sent'), 'ok');
+      setIntegrationsStatus(() => t('integrations_sent'), 'ok');
     } catch (error) {
-      setIntegrationsStatus(error.message, 'error');
+      setIntegrationsStatus(() => fehlerSatz(error), 'error');
     } finally {
       btnIntegrationsTest.disabled = false;
     }

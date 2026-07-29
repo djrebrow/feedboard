@@ -23,7 +23,7 @@
   "integrations_label": "Set up integrations",
   "tg_token_label": "Telegram bot token",
   "tg_chat_label": "Telegram chat ID",
-  "ai_key_label": "AI key",
+  "ai_key_label": "API key",
   "ai_model_label": "AI model",
   "briefing_hours_label": "Look back (hrs)",
   "briefing_lang_label": "Language",
@@ -254,5 +254,13 @@
   "err_ai_timeout": "The AI service did not answer in time.",
   "err_ai_model_unknown": "The service does not know this model: {model}",
   "err_ai_models_failed": "The model list could not be loaded.",
-  "integrations_unavailable": "Integrations unavailable ({error}) — the fields below are defaults only."
+  "integrations_unavailable": "Integrations unavailable ({error}) — the fields below are defaults only.",
+  "help_title": "Show instructions",
+  "help_key_link": "Create a key at the provider:",
+  "help_tg_token": "Message @BotFather in Telegram.\nSend /newbot.\nPick a name and a username — the username must end in “bot”.\nBotFather replies with the token (like 123456789:AA…). Paste it here and save.",
+  "help_tg_chat": "Send your own bot any message — until you do, it is not allowed to reply.\nOpen https://api.telegram.org/bot<TOKEN>/getUpdates in the browser and replace <TOKEN> with the bot token.\nThe reply contains \"chat\":{\"id\":…}. That number is the chat ID.\nFor a channel, add the bot there as an administrator; the ID then starts with -100.",
+  "help_ai_key": "Sign in at the provider (address below).\nCreate a new key in the developer area.\nThe key is usually shown only once — paste it here and save right away.\nThen press “Load list” to fetch the provider's models.",
+  "help_ai_base": "The address must end in /v1, e.g. http://localhost:11434/v1 for Ollama.\nIf Feedboard runs in Docker, your own machine is not “localhost” but host.docker.internal.\nThe endpoint must offer /chat/completions and /models in OpenAI style — Ollama, LM Studio and vLLM do.\nA key is usually not needed there, which is why the field stays hidden.",
+  "help_ai_model": "“Load list” fetches the models from the provider. The key must be saved for that.\nAfter switching providers, save first, then load — otherwise you would get the old provider's list.\nIf the model you want is not listed, pick “other model …” and type its name.",
+  "help_briefing": "The time applies in the server's time zone — shown next to “Briefing at”, not the browser's.\nWith no day selected nothing runs; with no time the briefing is off.\n“Look back” sets how far back unread articles are included (1 to 168 hours).\nThe briefing needs a configured AI provider and Telegram."
 }

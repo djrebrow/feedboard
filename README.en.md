@@ -37,7 +37,7 @@ Both stay switched off until they are set up — the buttons never even appear. 
 - **Daily briefing**: every unread article of the past 24 hours grouped by topic (settings window, section "Integrations"); reused for six hours
 - **Share an article via Telegram** — to your own chat through a bot
 - **Scheduled briefing via Telegram**: pick a time and the weekdays in the settings window, Feedboard does the rest. The time applies in the server's time zone, which is shown next to the field
-- **Set-up in the window**: bot token, chat ID, AI provider with key and model, and the briefing (time and weekdays) can be set under "Integrations" once signed in, including a button for a test message. The secrets never leave the server again — only their last four characters are shown
+- **Set-up in the window**: bot token, chat ID, AI provider with key and model, and the briefing (time and weekdays) can be set under "Integrations" once signed in, including a button for a test message. A question mark next to each field unfolds short instructions — for the API key with the address of the currently selected provider. The secrets never leave the server again — only their last four characters are shown
 
 ### Security & backup
 

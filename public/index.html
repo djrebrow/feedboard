@@ -139,21 +139,27 @@
                           <button id="btn-briefing" class="btn settings-save" type="button" data-i18n="ai_briefing">Tages-Briefing</button>
                         </div>
           <p class="settings-note" id="integrations-locked" hidden data-i18n="integrations_locked">Zum Einrichten bitte anmelden.</p>
-          <!-- Nur für Angemeldete: hier stehen Bot-Token und KI-Schlüssel. -->
+          <!-- Nur für Angemeldete: hier stehen Bot-Token und API-Schlüssel. -->
                         <div class="settings-section" id="settings-integrations" hidden>
                           <span class="settings-label" data-i18n="integrations_label">Zugänge einrichten</span>
 
                           <div class="settings-field">
                             <label class="settings-field-label" for="input-tg-token">
                               <span data-i18n="tg_token_label">Telegram Bot-Token</span>
+                              <button type="button" class="help-btn" data-help="tg_token" aria-expanded="false" aria-controls="help-tg_token" data-i18n-title="help_title" title="Anleitung anzeigen">?</button>
                               <button type="button" class="settings-clear" id="clear-tg-token" hidden data-i18n="clear">entfernen</button>
                             </label>
                             <input type="password" id="input-tg-token" class="settings-input" autocomplete="off" spellcheck="false">
+                            <div class="field-help" id="help-tg_token" hidden></div>
                           </div>
 
                           <div class="settings-field">
-                            <label class="settings-field-label" for="input-tg-chat" data-i18n="tg_chat_label">Telegram Chat-ID</label>
+                            <label class="settings-field-label" for="input-tg-chat">
+                              <span data-i18n="tg_chat_label">Telegram Chat-ID</span>
+                              <button type="button" class="help-btn" data-help="tg_chat" aria-expanded="false" aria-controls="help-tg_chat" data-i18n-title="help_title" title="Anleitung anzeigen">?</button>
+                            </label>
                             <input type="text" id="input-tg-chat" class="settings-input" autocomplete="off" spellcheck="false">
+                            <div class="field-help" id="help-tg_chat" hidden></div>
                           </div>
 
                           <!-- Anbieter und Modell gehören zusammen: welches Modell
@@ -167,6 +173,7 @@
                             <div class="settings-field">
                               <label class="settings-field-label" for="select-ai-model">
                                 <span data-i18n="ai_model_label">KI-Modell</span>
+                                <button type="button" class="help-btn" data-help="ai_model" aria-expanded="false" aria-controls="help-ai_model" data-i18n-title="help_title" title="Anleitung anzeigen">?</button>
                                 <button type="button" class="settings-clear" id="btn-ai-models" data-i18n="ai_models_load">Liste laden</button>
                               </label>
                               <select id="select-ai-model" class="settings-input"></select>
@@ -177,19 +184,26 @@
                                eigenen Endpunkt lässt sich keine Liste holen. Steht über die
                                ganze Breite, weil Modellnamen lang werden können. -->
                           <input type="text" id="input-ai-model" class="settings-input" autocomplete="off" spellcheck="false" hidden data-i18n-placeholder="ai_model_placeholder" placeholder="Modellname">
+                          <div class="field-help" id="help-ai_model" hidden></div>
 
                           <!-- Nur bei „Eigene Basis-URL": Ollama, LM Studio, vLLM im eigenen Netz. -->
                           <div class="settings-field" id="ai-base-field" hidden>
-                            <label class="settings-field-label" for="input-ai-base" data-i18n="ai_base_label">Basis-URL</label>
+                            <label class="settings-field-label" for="input-ai-base">
+                              <span data-i18n="ai_base_label">Basis-URL</span>
+                              <button type="button" class="help-btn" data-help="ai_base" aria-expanded="false" aria-controls="help-ai_base" data-i18n-title="help_title" title="Anleitung anzeigen">?</button>
+                            </label>
                             <input type="url" id="input-ai-base" class="settings-input" autocomplete="off" spellcheck="false" placeholder="http://localhost:11434/v1">
+                            <div class="field-help" id="help-ai_base" hidden></div>
                           </div>
 
                           <div class="settings-field" id="ai-key-field">
                             <label class="settings-field-label" for="input-ai-key">
-                              <span data-i18n="ai_key_label">KI-Schlüssel</span>
+                              <span data-i18n="ai_key_label">API-Schlüssel</span>
+                              <button type="button" class="help-btn" data-help="ai_key" aria-expanded="false" aria-controls="help-ai_key" data-i18n-title="help_title" title="Anleitung anzeigen">?</button>
                               <button type="button" class="settings-clear" id="clear-ai-key" hidden data-i18n="clear">entfernen</button>
                             </label>
                             <input type="password" id="input-ai-key" class="settings-input" autocomplete="off" spellcheck="false">
+                            <div class="field-help" id="help-ai_key" hidden></div>
                           </div>
 
                           <!-- Uhrzeit und Wochentage gehören zusammen und stehen
@@ -199,6 +213,7 @@
                             <label class="settings-field-label" for="input-briefing-time">
                               <span data-i18n="briefing_time_label">Briefing um</span>
                               <span class="settings-hint" id="briefing-tz"></span>
+                              <button type="button" class="help-btn" data-help="briefing" aria-expanded="false" aria-controls="help-briefing" data-i18n-title="help_title" title="Anleitung anzeigen">?</button>
                             </label>
                             <div class="briefing-when">
                               <input type="time" id="input-briefing-time" class="settings-input briefing-time">
@@ -209,6 +224,7 @@
                               <button type="button" class="settings-clear" data-days="1,2,3,4,5" data-i18n="days_workdays">Mo–Fr</button>
                               <button type="button" class="settings-clear" data-days="0,1,2,3,4,5,6" data-i18n="briefing_every_day">täglich</button>
                             </div>
+                            <div class="field-help" id="help-briefing" hidden></div>
                           </div>
 
                           <div class="settings-field settings-field-row">

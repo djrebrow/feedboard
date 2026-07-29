@@ -1383,6 +1383,43 @@ body.font-large .search-result .article-title { font-size: 16.5px; }
 .settings-clear:hover { color: var(--accent); }
 .settings-clear[hidden] { display: none; }
 
+/* Fragezeichen an der Beschriftung: klappt die Anleitung unter dem Feld auf */
+.help-btn {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  /* Direkt hinter die Beschriftung; alles Weitere (entfernen, Liste laden)
+     wird dadurch an den rechten Rand geschoben. */
+  margin-right: auto;
+  align-self: center;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+.help-btn:hover { border-color: var(--accent); color: var(--accent); }
+.help-btn.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+.field-help {
+  margin-top: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.field-help ol, .field-help ul { margin: 0; padding-left: 18px; }
+.field-help li + li { margin-top: 3px; }
+.field-help-link { margin: 7px 0 0; word-break: break-all; }
+.field-help-link a { color: var(--accent); }
+
 /* Uhrzeit und Wochentage in einer Zeile. Die Tage teilen sich den Rest der
    Breite, die Uhrzeit behält ihre eigene. */
 .briefing-when { display: flex; align-items: center; gap: 8px; }
