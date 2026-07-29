@@ -169,6 +169,7 @@ function buildGuid(item) {
 
 // Telegram-Nachrichten als Artikel speichern (erste Zeile = Überschrift, voller Text = Kurzfassung)
 function saveTelegramMessages(feedId, messages) {
+  const regeln = store.getRules();
   for (const msg of messages) {
     const fullText = (msg.text || '').trim();
     const firstLine = fullText.split('\n').find((line) => line.trim()) || '';
@@ -177,7 +178,7 @@ function saveTelegramMessages(feedId, messages) {
     const hasMore = fullText.includes('\n') || firstLine.length > 140;
     const summary = hasMore ? truncateAtWord(fullText, SUMMARY_MAX_CHARS) : null;
 
-    store.upsertArticle({
+    const artikel = store.upsertArticle({
       feedId,
       guid: msg.url || `${feedId}:${msg.createdAt || ''}`,
       title,
@@ -186,6 +187,7 @@ function saveTelegramMessages(feedId, messages) {
       imageUrl: msg.photo || null,
       publishedAt: msg.createdAt,
     });
+    if (artikel && regeln.length) store.applyRules(artikel, regeln);
   }
 }
 
@@ -209,15 +211,55 @@ async function fetchTelegramFeed(feed) {
   }
 }
 
+// Bedingtes Abrufen: hat der Server beim letzten Mal ein ETag oder ein
+// Last-Modified mitgegeben, fragen wir zuerst, ob sich ueberhaupt etwas
+// geaendert hat. Antwortet er mit 304, sparen wir Uebertragung und Parsen —
+// und der Server hat weniger Arbeit. Deshalb laedt Feedboard hier selbst,
+// statt parseURL zu benutzen: rss-parser laesst keine Kopfzeilen je Aufruf zu.
+async function ladeFeedText(feed) {
+  const kopf = {
+    'User-Agent': USER_AGENT,
+    Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
+  };
+  if (feed.etag) kopf['If-None-Match'] = feed.etag;
+  if (feed.last_modified) kopf['If-Modified-Since'] = feed.last_modified;
+
+  const antwort = await fetch(feed.rss_url, {
+    headers: kopf,
+    redirect: 'follow',
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+
+  if (antwort.status === 304) return { unveraendert: true };
+  if (!antwort.ok) throw new Error(`HTTP ${antwort.status} ${antwort.statusText}`.trim());
+
+  return {
+    unveraendert: false,
+    text: await antwort.text(),
+    etag: antwort.headers.get('etag'),
+    lastModified: antwort.headers.get('last-modified'),
+  };
+}
+
 async function fetchFeed(feed) {
   if (feed.type === 'telegram') return fetchTelegramFeed(feed);
   try {
-    const parsed = await parser.parseURL(feed.rss_url);
+    const antwort = await ladeFeedText(feed);
+    if (antwort.unveraendert) {
+      store.markFeedNotModified(feed.id);
+      return { feedId: feed.id, ok: true, unchanged: true, items: 0 };
+    }
+
+    const parsed = await parser.parseString(antwort.text);
     const items = (parsed.items || []).slice(0, KEEP_ARTICLES_PER_FEED);
+
+    // Einmal je Feed laden statt einmal je Artikel
+    const regeln = store.getRules();
+    let regelTreffer = 0;
 
     for (const item of items) {
       const title = stripHtml(item.title || '') || '(ohne Titel)';
-      store.upsertArticle({
+      const artikel = store.upsertArticle({
         feedId: feed.id,
         guid: buildGuid(item),
         title,
@@ -226,11 +268,15 @@ async function fetchFeed(feed) {
         imageUrl: extractImage(item),
         publishedAt: toIsoDate(item),
       });
+      if (artikel && regeln.length && store.applyRules(artikel, regeln).length) regelTreffer += 1;
     }
 
     store.pruneArticles(feed.id, KEEP_ARTICLES_PER_FEED);
     store.markFeedFetched(feed.id);
-    return { feedId: feed.id, ok: true, items: items.length };
+    // Erst jetzt merken: ein Rumpf, an dem das Parsen scheitert, gilt sonst als
+    // gesehen und der Feed bliebe beim naechsten Mal auf 304 stehen.
+    store.setFeedCache(feed.id, antwort.etag, antwort.lastModified);
+    return { feedId: feed.id, ok: true, items: items.length, rules: regelTreffer };
   } catch (error) {
     const message = error && error.message ? error.message : String(error);
     store.markFeedError(feed.id, message);
@@ -269,8 +315,9 @@ async function refreshAllFeeds() {
     const paused = store.getFeeds().length - feeds.length;
     const results = await mapLimit(feeds, CONCURRENCY, fetchFeed);
     const ok = results.filter((r) => r.ok).length;
+    const unchanged = results.filter((r) => r.unchanged).length;
     const failed = results.length - ok;
-    return { skipped: false, total: results.length, ok, failed, paused };
+    return { skipped: false, total: results.length, ok, failed, paused, unchanged };
   } finally {
     refreshInProgress = false;
   }
@@ -429,9 +476,10 @@ async function addFeed({ categoryId, url, name }) {
 
   // Bereits geparste Artikel direkt übernehmen
   const items = (parsed.items || []).slice(0, KEEP_ARTICLES_PER_FEED);
+  const regeln = store.getRules();
   for (const item of items) {
     const title = stripHtml(item.title || '') || '(ohne Titel)';
-    store.upsertArticle({
+    const artikel = store.upsertArticle({
       feedId: feed.id,
       guid: buildGuid(item),
       title,
@@ -440,6 +488,7 @@ async function addFeed({ categoryId, url, name }) {
       imageUrl: extractImage(item),
       publishedAt: toIsoDate(item),
     });
+    if (artikel && regeln.length) store.applyRules(artikel, regeln);
   }
   store.pruneArticles(feed.id, KEEP_ARTICLES_PER_FEED);
   store.markFeedFetched(feed.id);

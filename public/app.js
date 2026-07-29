@@ -111,6 +111,26 @@
   const integrationsStatus = document.getElementById('integrations-status');
   const btnIntegrationsSave = document.getElementById('btn-integrations-save');
   const btnIntegrationsTest = document.getElementById('btn-integrations-test');
+  const btnOffline = document.getElementById('btn-offline');
+  const chkOfflineFulltext = document.getElementById('chk-offline-fulltext');
+  const offlineStatus = document.getElementById('offline-status');
+  const inputFeverUser = document.getElementById('input-fever-user');
+  const inputFeverPassword = document.getElementById('input-fever-password');
+  const clearFever = document.getElementById('clear-fever');
+  const feverStatus = document.getElementById('fever-status');
+  const btnFeverSave = document.getElementById('btn-fever-save');
+  const ruleList = document.getElementById('rule-list');
+  const ruleForm = document.getElementById('rule-form');
+  const rulesLocked = document.getElementById('rules-locked');
+  const ruleFeed = document.getElementById('rule-feed');
+  const ruleField = document.getElementById('rule-field');
+  const rulePattern = document.getElementById('rule-pattern');
+  const ruleAction = document.getElementById('rule-action');
+  const ruleApplyNow = document.getElementById('rule-apply-now');
+  const ruleStatus = document.getElementById('rule-status');
+  const btnRuleAdd = document.getElementById('btn-rule-add');
+  const feedHealth = document.getElementById('feed-health');
+  const feedsHealthStatus = document.getElementById('feeds-health-status');
   const settingsAccount = document.getElementById('settings-account');
   const shortcutList = document.getElementById('shortcut-list');
 
@@ -1200,6 +1220,273 @@
     if (inputBriefingTime.value && !gewaehlteTage().length) renderWeekdays([0, 1, 2, 3, 4, 5, 6]);
   });
 
+  // ---- Zustand der Feeds ---------------------------------------------------
+  // Feeds schalten sich nach zu vielen Fehlern selbst ab. Bisher merkte man das
+  // nur daran, dass nichts mehr kam — hier steht es.
+
+  async function loadFeedHealth() {
+    feedsHealthStatus.textContent = t('feeds_health_loading');
+    try {
+      const daten = await api('/api/feeds/health');
+      renderFeedHealth(daten);
+    } catch (error) {
+      feedsHealthStatus.textContent = fehlerSatz(error);
+    }
+  }
+
+  function renderFeedHealth(daten) {
+    const feeds = daten.feeds || [];
+    const aus = feeds.filter((f) => !f.enabled).length;
+    const kaputt = feeds.filter((f) => f.enabled && f.last_error).length;
+    feedsHealthStatus.textContent = t('feeds_health_summary', { n: feeds.length, aus, kaputt });
+
+    feedHealth.innerHTML = feeds.map((f) => {
+      const zustand = !f.enabled ? 'aus' : (f.last_error ? 'fehler' : 'ok');
+      const marke = { aus: '⏸', fehler: '!', ok: '●' }[zustand];
+      const zeilen = [
+        t('feed_health_freq', { n: f.per_week }),
+        t('feed_health_seen', { when: f.last_fetched_at ? relativeTime(f.last_fetched_at) : t('feed_never') }),
+        f.conditional ? t('feed_health_conditional') : null,
+      ].filter(Boolean).join(' · ');
+
+      return `<div class="feed-health-row is-${zustand}">
+        <span class="feed-health-mark" aria-hidden="true">${marke}</span>
+        <div class="feed-health-body">
+          <div class="feed-health-name">${esc(f.name)}<span class="feed-health-cat">${esc(f.category_name)}</span></div>
+          <div class="feed-health-meta">${esc(zeilen)}</div>
+          ${f.last_error ? `<div class="feed-health-error">${esc(f.last_error)}</div>` : ''}
+          ${!f.enabled ? `<div class="feed-health-meta">${esc(t('feed_health_paused', { n: f.error_count }))}</div>` : ''}
+        </div>
+        ${!f.enabled && !needsLogin() ? `<button type="button" class="btn feed-health-on" data-feed="${f.id}">${esc(t('feed_health_enable'))}</button>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  feedHealth.addEventListener('click', async (event) => {
+    const knopf = event.target.closest('.feed-health-on');
+    if (!knopf) return;
+    knopf.disabled = true;
+    try {
+      await api(`/api/feeds/${knopf.dataset.feed}`, { method: 'PATCH', body: JSON.stringify({ enabled: true }) });
+      await loadFeedHealth();
+      await loadBoard();
+    } catch (error) {
+      feedsHealthStatus.textContent = fehlerSatz(error);
+      knopf.disabled = false;
+    }
+  });
+
+  // ---- Offline lesen -------------------------------------------------------
+  // Der Service-Worker legt jede API-Antwort ab, die einmal durchgelaufen ist.
+  // Hier holen wir die Texte deshalb bewusst einmal vorab — unter genau den
+  // Adressen, die die Oberflaeche spaeter auch anfragt.
+
+  async function offlineVorratAnlegen() {
+    btnOffline.disabled = true;
+    offlineStatus.classList.remove('is-error', 'is-ok');
+    try {
+      const { ids } = await api('/api/offline/list');
+      if (!ids.length) {
+        offlineStatus.textContent = t('offline_empty');
+        return;
+      }
+
+      // Fast kein Artikel hat den Volltext schon gespeichert — ohne Nachladen
+      // laege im Vorrat nur die Kurzfassung. Das Nachladen geht an die fremden
+      // Seiten, deshalb in kleinen Gruppen und abschaltbar.
+      const holeVolltext = chkOfflineFulltext.checked;
+      const gruppengroesse = holeVolltext ? 3 : 6;
+      let geladen = 0;
+      let mitText = 0;
+
+      for (let i = 0; i < ids.length; i += gruppengroesse) {
+        const gruppe = ids.slice(i, i + gruppengroesse);
+        await Promise.all(gruppe.map(async (id) => {
+          try {
+            // Erst den Server den Text holen lassen (POST), dann per GET
+            // abrufen — nur die GET-Antwort legt der Service-Worker ab.
+            if (holeVolltext) {
+              await fetch(`/api/articles/${id}/content`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: '{}',
+              });
+            }
+            const antwort = await fetch(`/api/articles/${id}/content`, { headers: { 'Content-Type': 'application/json' } });
+            const daten = await antwort.clone().json().catch(() => null);
+            if (daten?.content) mitText += 1;
+            geladen += 1;
+          } catch { /* einzelner Fehlschlag ist kein Grund aufzuhoeren */ }
+        }));
+        offlineStatus.textContent = t('offline_progress', { n: geladen, total: ids.length });
+      }
+
+      // Das Board selbst muss ebenfalls im Cache liegen, sonst gibt es offline
+      // keine Liste, in der die Artikel stehen.
+      await fetch('/api/board');
+      offlineStatus.textContent = t('offline_ready', { n: geladen, text: mitText });
+      offlineStatus.classList.add('is-ok');
+    } catch (error) {
+      offlineStatus.textContent = fehlerSatz(error);
+      offlineStatus.classList.add('is-error');
+    } finally {
+      btnOffline.disabled = false;
+    }
+  }
+
+  btnOffline.addEventListener('click', offlineVorratAnlegen);
+
+  // ---- Zugang fuer Handy-Apps ---------------------------------------------
+  // Gespeichert wird nur der md5-Wert, den die App ohnehin schickt. Das Wort
+  // selbst verlaesst den Browser genau einmal.
+
+  async function saveFever() {
+    const nutzer = inputFeverUser.value.trim();
+    const wort = inputFeverPassword.value;
+    if (!nutzer || wort.length < 6) { setFeverStatus(() => t('fever_hint'), 'error'); return; }
+
+    btnFeverSave.disabled = true;
+    try {
+      const antwort = await api('/api/settings/fever', {
+        method: 'PUT',
+        body: JSON.stringify({ user: nutzer, password: wort }),
+      });
+      feverZustand = antwort.fever;
+      inputFeverPassword.value = '';
+      clearFever.hidden = !feverZustand.configured;
+      feverPlatzhalter();
+      setFeverStatus(() => t('fever_saved', { url: `${location.origin}/fever` }), 'ok');
+      zeichneHilfe('fever');
+    } catch (error) {
+      setFeverStatus(() => fehlerSatz(error), 'error');
+    } finally {
+      btnFeverSave.disabled = false;
+    }
+  }
+
+  let letzterFeverStatus = null;
+
+  function setFeverStatus(erzeuger, art) {
+    letzterFeverStatus = erzeuger ? { erzeuger, art } : null;
+    feverStatus.textContent = erzeuger ? erzeuger() : '';
+    feverStatus.classList.toggle('is-error', art === 'error');
+    feverStatus.classList.toggle('is-ok', art === 'ok');
+  }
+
+  btnFeverSave.addEventListener('click', saveFever);
+  clearFever.addEventListener('click', async () => {
+    try {
+      const antwort = await api('/api/settings/fever', { method: 'PUT', body: JSON.stringify({ clear: true }) });
+      feverZustand = antwort.fever;
+      clearFever.hidden = true;
+      inputFeverUser.value = '';
+      feverPlatzhalter();
+      setFeverStatus(() => t('fever_cleared'), '');
+    } catch (error) {
+      setFeverStatus(() => fehlerSatz(error), 'error');
+    }
+  });
+
+  // ---- Regeln --------------------------------------------------------------
+  // Greifen beim Eintreffen eines Artikels. Die Liste ist offen einsehbar,
+  // geaendert wird nur angemeldet — genau wie bei Rubriken und Feeds.
+
+  const AKTION_TEXT = { read: 'rule_action_read', star: 'rule_action_star', hide: 'rule_action_hide' };
+  const FELD_TEXT = { any: 'rule_field_any', title: 'rule_field_title', summary: 'rule_field_summary' };
+
+  async function loadRules() {
+    try {
+      renderRules((await api('/api/rules')).rules);
+    } catch (error) {
+      ruleStatus.textContent = fehlerSatz(error);
+    }
+  }
+
+  function renderRules(regeln) {
+    const darf = !needsLogin();
+    ruleForm.hidden = !darf;
+    rulesLocked.hidden = darf;
+
+    // Feed-Auswahl aus dem Board: „alle" plus jeder einzelne Feed
+    const feeds = (state.board?.categories || []).flatMap((c) => (c.feeds || []).map((f) => ({ id: f.id, name: f.name })));
+    ruleFeed.innerHTML = `<option value="">${esc(t('rule_feed_all'))}</option>`
+      + feeds.map((f) => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
+
+    if (!regeln.length) {
+      ruleList.innerHTML = `<p class="settings-note">${esc(t('rules_empty'))}</p>`;
+      return;
+    }
+
+    ruleList.innerHTML = regeln.map((r) => `<div class="rule-row${r.enabled ? '' : ' is-off'}">
+      <div class="rule-body">
+        <div class="rule-text">${esc(t('rule_sentence', {
+          feed: r.feed_name || t('rule_feed_all'),
+          field: t(FELD_TEXT[r.field] || 'rule_field_any'),
+          pattern: r.pattern,
+          action: t(AKTION_TEXT[r.action] || r.action),
+        }))}</div>
+        <div class="rule-meta">${esc(t('rule_hits', { n: r.hits }))}</div>
+      </div>
+      ${darf ? `<label class="rule-switch"><input type="checkbox" data-rule-toggle="${r.id}"${r.enabled ? ' checked' : ''}><span>${esc(t('rule_active'))}</span></label>
+      <button type="button" class="settings-clear" data-rule-delete="${r.id}">${esc(t('clear'))}</button>` : ''}
+    </div>`).join('');
+  }
+
+  async function addRule() {
+    const muster = rulePattern.value.trim();
+    if (!muster) { ruleStatus.textContent = t('rule_pattern_required'); return; }
+
+    btnRuleAdd.disabled = true;
+    ruleStatus.textContent = '…';
+    try {
+      const antwort = await api('/api/rules', {
+        method: 'POST',
+        body: JSON.stringify({
+          feed_id: ruleFeed.value || null,
+          field: ruleField.value,
+          pattern: muster,
+          action: ruleAction.value,
+          apply_now: ruleApplyNow.checked,
+        }),
+      });
+      rulePattern.value = '';
+      renderRules(antwort.rules);
+      ruleStatus.textContent = antwort.applied.articles
+        ? t('rule_applied', { n: antwort.applied.articles })
+        : t('rule_created');
+      await loadBoard();
+    } catch (error) {
+      ruleStatus.textContent = fehlerSatz(error);
+    } finally {
+      btnRuleAdd.disabled = false;
+    }
+  }
+
+  ruleList.addEventListener('change', async (event) => {
+    const schalter = event.target.closest('[data-rule-toggle]');
+    if (!schalter) return;
+    try {
+      renderRules((await api(`/api/rules/${schalter.dataset.ruleToggle}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ enabled: schalter.checked }),
+      })).rules);
+    } catch (error) {
+      ruleStatus.textContent = fehlerSatz(error);
+    }
+  });
+
+  ruleList.addEventListener('click', async (event) => {
+    const knopf = event.target.closest('[data-rule-delete]');
+    if (!knopf) return;
+    try {
+      renderRules((await api(`/api/rules/${knopf.dataset.ruleDelete}`, { method: 'DELETE' })).rules);
+    } catch (error) {
+      ruleStatus.textContent = fehlerSatz(error);
+    }
+  });
+
+  btnRuleAdd.addEventListener('click', addRule);
+
   // ---- Anleitungen an den Feldern -----------------------------------------
   // Der Text steht im Wörterbuch, eine Zeile je Punkt; die Adresse zum
   // Schlüssel in providers.js, weil sie nicht übersetzt wird. Gezeichnet wird
@@ -1255,6 +1542,13 @@
 
   let aiZustand = null;       // zuletzt vom Server gemeldeter Stand
   let telegramZustand = null; // desgleichen fuer Telegram — fuer den Platzhalter
+  let feverZustand = null;    // und fuer den Zugang der Handy-Apps
+
+  function feverPlatzhalter() {
+    inputFeverPassword.placeholder = feverZustand?.configured
+      ? t('fever_set')
+      : t('integrations_unset');
+  }
 
   // Eigene Funktion, damit der Platzhalter auch beim Sprachwechsel neu
   // entsteht. Vorher wurde er nur einmal beim Laden gesetzt und blieb danach
@@ -1364,6 +1658,7 @@
   function aktualisiereZugangsTexte() {
     if (briefingDays.children.length) renderWeekdays(gewaehlteTage());
     tokenPlatzhalter();
+    feverPlatzhalter();
     statusNeuZeichnen();
     alleOffenenHilfenNeu();
     if (!selectAiProvider.options.length) return;
@@ -1410,6 +1705,12 @@
     updateProviderFields();
     renderModels([], ki.model || aktuellerAnbieter().standard || '');
 
+    feverZustand = data.fever || null;
+    inputFeverUser.value = feverZustand?.user || '';
+    inputFeverPassword.value = '';
+    clearFever.hidden = !feverZustand?.configured;
+    feverPlatzhalter();
+
     applySchedule(briefing.time, briefing.days, data.timezone);
     if (briefing.hours) inputBriefingHours.value = briefing.hours;
     if (briefing.lang) selectBriefingLang.value = briefing.lang;
@@ -1431,6 +1732,7 @@
 
   function statusNeuZeichnen() {
     if (letzterStatus) integrationsStatus.textContent = letzterStatus.erzeuger();
+    if (letzterFeverStatus) feverStatus.textContent = letzterFeverStatus.erzeuger();
   }
 
   async function loadIntegrations() {
@@ -2297,6 +2599,8 @@
   function showSettingsSection(name) {
     settingsNav.querySelectorAll('.dialog-nav-btn').forEach((b) => b.classList.toggle('is-active', b.dataset.section === name));
     settingsDialog.querySelectorAll('.dialog-pane').forEach((p) => p.classList.toggle('is-active', p.dataset.pane === name));
+    // Der Zustand kostet eine Abfrage — also erst holen, wenn er gebraucht wird.
+    if (name === 'feeds') { loadFeedHealth(); loadRules(); }
   }
 
   btnSettings.addEventListener('click', () => setSettingsOpen(settingsDialog.hidden));

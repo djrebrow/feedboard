@@ -4,6 +4,11 @@
 const CACHE = 'feedboard-v1';
 const SHELL = ['/', '/manifest.webmanifest', '/icon.svg'];
 
+// Den Volltext holt die Oberflaeche per POST — gespeichert wird im Cache aber
+// nur, was per GET lief. Ohne Netz greifen wir deshalb auf den Vorrat zurueck,
+// den „Offline lesen" unter derselben Adresse per GET abgelegt hat.
+const VOLLTEXT = /^\/api\/articles\/\d+\/content$/;
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE)
@@ -22,10 +27,20 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  if (req.method !== 'GET') return;
-
   const url = new URL(req.url);
   if (url.origin !== location.origin) return; // externe Ressourcen (Bilder, Fonts) normal laden
+
+  if (req.method === 'POST' && VOLLTEXT.test(url.pathname)) {
+    event.respondWith(
+      fetch(req).catch(() => caches.match(url.pathname).then((treffer) => treffer || new Response(
+        JSON.stringify({ error: 'Offline und nicht im Vorrat.', code: 'offline_missing' }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      )))
+    );
+    return;
+  }
+
+  if (req.method !== 'GET') return;
 
   // API: zuerst Netzwerk, bei Fehler aus dem Cache (letzter Stand)
   if (url.pathname.startsWith('/api/')) {

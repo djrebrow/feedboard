@@ -14,6 +14,7 @@ const auth = require('./auth');
 const extract = require('./extract');
 const ai = require('./ai');
 const telegram = require('./telegram');
+const fever = require('./fever');
 const schedule = require('./public/schedule');
 const providers = require('./public/providers');
 const { fehler, toResponse } = require('./errors');
@@ -357,6 +358,14 @@ app.get('/api/articles/:id/content', asyncHandler(async (req, res) => {
   res.json({ content: article.content || null, content_at: article.content_at || null });
 }));
 
+// Welche Artikel fuer einen Vorrat in Frage kommen: gespeicherte immer, dazu
+// die juengsten ungelesenen. Nur die IDs — den Text holt die Oberflaeche
+// einzeln, damit er unter genau der Adresse im Cache landet, die sie spaeter
+// auch anfragt.
+app.get('/api/offline/list', (req, res) => {
+  res.json({ ids: store.getOfflineCandidates(Number(req.query.limit) || 60) });
+});
+
 app.post('/api/articles/:id/content', asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
   const article = requireArticle(id);
@@ -478,6 +487,67 @@ app.put('/api/settings/mute', auth.protect, asyncHandler(async (req, res) => {
   res.json({ words: store.setMuteWords(req.body?.words ?? []) });
 }));
 
+// Zustand aller Feeds: wie oft sie etwas bringen, wann sie zuletzt erreichbar
+// waren, woran es hakt. Offen wie /api/board — es steht nichts darin, was dort
+// nicht ohnehin steht. Das Wiedereinschalten laeuft ueber PATCH /api/feeds/:id
+// und bleibt damit angemeldeten Nutzern vorbehalten.
+app.get('/api/feeds/health', (req, res) => {
+  res.json({ feeds: store.getFeedHealth(), auto_disable_after: store.AUTO_DISABLE_AFTER_ERRORS });
+});
+
+// ---------------------------------------------------------------------------
+// Fever-Schnittstelle fuer Handy-Apps (NetNewsWire, Reeder, FeedMe, ...)
+// ---------------------------------------------------------------------------
+// Bewusst ohne auth.protect: die Apps kennen unser Sitzungs-Cookie nicht,
+// sondern melden sich mit ihrem eigenen Schluessel an (siehe fever.js). Ohne
+// eingerichteten Zugang antwortet die Schnittstelle mit auth: 0 und gibt
+// nichts heraus.
+const feverBody = express.urlencoded({ extended: false, limit: '256kb' });
+
+app.all('/fever', feverBody, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(fever.handle(req.query || {}, req.body || {}));
+});
+
+// ---------------------------------------------------------------------------
+// API: Regeln
+// ---------------------------------------------------------------------------
+// Was beim Eintreffen eines Artikels automatisch passieren soll. Lesen ist
+// offen wie das Board; Anlegen, Aendern und Loeschen sind Eingriffe.
+
+app.get('/api/rules', (req, res) => {
+  res.json({ rules: store.getRules(), fields: store.REGEL_FELDER, actions: store.REGEL_AKTIONEN });
+});
+
+app.post('/api/rules', auth.protect, asyncHandler(async (req, res) => {
+  const feedId = req.body?.feed_id == null || req.body.feed_id === '' ? null : parseId(req.body.feed_id);
+  const regel = store.createRule({
+    feedId,
+    field: String(req.body?.field || 'any'),
+    pattern: String(req.body?.pattern || ''),
+    action: String(req.body?.action || ''),
+  });
+
+  // Auf Wunsch gleich auf den Bestand anwenden — sonst taete eine neue Regel
+  // erst beim naechsten Abruf etwas, und das verwirrt.
+  const rueckwirkend = req.body?.apply_now
+    ? store.applyRulesToExisting(regel.id)
+    : { articles: 0, actions: 0 };
+
+  res.status(201).json({ rule: regel, applied: rueckwirkend, rules: store.getRules() });
+}));
+
+app.patch('/api/rules/:id', auth.protect, asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!store.getRules().some((r) => r.id === id)) throw fehler('rule_not_found', 'Regel nicht gefunden.');
+  res.json({ rule: store.updateRule(id, { enabled: !!req.body?.enabled }), rules: store.getRules() });
+}));
+
+app.delete('/api/rules/:id', auth.protect, asyncHandler(async (req, res) => {
+  store.deleteRule(parseId(req.params.id));
+  res.json({ ok: true, rules: store.getRules() });
+}));
+
 // ---------------------------------------------------------------------------
 // API: Zugänge (Telegram, KI, Briefing-Zeitplan)
 // ---------------------------------------------------------------------------
@@ -487,8 +557,31 @@ app.put('/api/settings/mute', auth.protect, asyncHandler(async (req, res) => {
 // vier Zeichen zum Wiedererkennen.
 
 app.get('/api/settings/integrations', auth.protect, (req, res) => {
-  res.json({ ...config.publicState(), schedule: briefingStatus(), timezone: serverTimezone() });
+  res.json({
+    ...config.publicState(),
+    schedule: briefingStatus(),
+    timezone: serverTimezone(),
+    fever: fever.publicState(),
+  });
 });
+
+// Zugang fuer Handy-Apps. Gespeichert wird nur der md5-Wert, den die App
+// ohnehin schickt — das Wort selbst brauchen wir nie wieder.
+app.put('/api/settings/fever', auth.protect, asyncHandler(async (req, res) => {
+  const nutzer = String(req.body?.user || '').trim();
+  const wort = String(req.body?.password || '');
+
+  if (req.body?.clear) {
+    fever.clearCredentials();
+    return res.json({ fever: fever.publicState() });
+  }
+  if (!nutzer || wort.length < 6) {
+    throw fehler('fever_credentials_required', 'Bitte Benutzernamen und ein Wort mit mindestens 6 Zeichen angeben.', { min: 6 });
+  }
+
+  fever.setCredentials(nutzer, wort);
+  res.json({ fever: fever.publicState() });
+}));
 
 // Der Zeitplan laeuft in der Zeitzone des Servers (in Docker ueber TZ gesetzt),
 // nicht in der des Browsers. Die Oberflaeche schreibt sie deshalb an die Uhrzeit.
@@ -614,7 +707,7 @@ app.listen(PORT, () => {
 setTimeout(() => {
   fetcher.refreshAllFeeds()
     .then((result) => {
-      if (!result.skipped) console.log(`Initiale Aktualisierung: ${result.ok} ok, ${result.failed} fehlgeschlagen.`);
+      if (!result.skipped) console.log(`Initiale Aktualisierung: ${result.ok} ok (davon ${result.unchanged} unveraendert), ${result.failed} fehlgeschlagen.`);
     })
     // Ohne diesen Fang beendet eine unbehandelte Rejection den ganzen Prozess.
     // Ein misslungener Abruf darf Feedboard nicht herunterreissen.
@@ -624,7 +717,7 @@ setTimeout(() => {
 cron.schedule(`*/${FETCH_INTERVAL_MINUTES} * * * *`, () => {
   fetcher.refreshAllFeeds()
     .then((result) => {
-      if (!result.skipped) console.log(`Automatische Aktualisierung: ${result.ok} ok, ${result.failed} fehlgeschlagen.`);
+      if (!result.skipped) console.log(`Automatische Aktualisierung: ${result.ok} ok (davon ${result.unchanged} unveraendert), ${result.failed} fehlgeschlagen.`);
     })
     .catch((error) => console.error('Automatische Aktualisierung fehlgeschlagen:', error.message));
 });

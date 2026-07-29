@@ -37,6 +37,11 @@ Both stay switched off until they are set up — the buttons never even appear. 
 - **Daily briefing**: every unread article of the past 24 hours grouped by topic (settings window, section "Integrations"); reused for six hours
 - **Share an article via Telegram** — to your own chat through a bot
 - **Scheduled briefing via Telegram**: pick a time and the weekdays in the settings window, Feedboard does the rest. The time applies in the server's time zone, which is shown next to the field
+- **Rules**: "title contains X → mark as read, star it or hide it", per feed or for all. Optionally applied to existing articles right away
+- **Feed health** in the settings window: how often a feed delivers, when it was last reachable, what is going wrong — plus a button for feeds that paused themselves after too many errors
+- **Conditional fetching**: Feedboard remembers each feed's ETag and Last-Modified and only asks for changes next time. 27 % less traffic in the measurement
+- **Full-text search** through a SQLite index (FTS5, trigram tokenizer): substring search as before, but 5 to 23 times faster, title matches first
+- **Read offline**: saved and unread articles can be stashed in the browser together with their text
 - **Set-up in the window**: bot token, chat ID, AI provider with key and model, and the briefing (time and weekdays) can be set under "Integrations" once signed in, including a button for a test message. A question mark next to each field unfolds short instructions — for the API key with the address of the currently selected provider. The secrets never leave the server again — only their last four characters are shown
 
 ### Security & backup
@@ -82,6 +87,12 @@ docker compose up -d --build
 ```
 
 The database lives in the `./data` folder and survives container restarts and updates.
+
+## Phone apps (Fever API)
+
+Feedboard speaks the Fever protocol, understood by NetNewsWire, Reeder, FeedMe and Fluent Reader. Set it up in the settings window under "Integrations": a user name and a word of your own — **not** the Feedboard password. Only the md5 value the app sends anyway is stored.
+
+In the app, add an account of type "Fever" and use `https://your-address/fever`. Read and saved states then sync in both directions.
 
 ## Configuration (environment variables)
 
@@ -153,6 +164,14 @@ For Docker, the optional values are best kept in a `.env` next to `docker-compos
 | `GET /api/settings/integrations` | Read integrations (signed in only; no secrets)        |
 | `PUT /api/settings/integrations` | Set integrations (signed in only; omitted fields stay) |
 | `POST /api/settings/integrations/test-telegram` | Send a test message (signed in only)  |
+| `PUT /api/settings/fever` | Set or remove the phone-app access (signed in only) |
+| `ALL /fever` | Fever API for phone apps (own key, no cookie) |
+| `GET /api/feeds/health` | State of every feed: frequency, last success, errors, auto-pause |
+| `GET /api/rules` | Read rules |
+| `POST /api/rules` | Create a rule, optionally applied retroactively (signed in only) |
+| `PATCH /api/rules/:id` | Enable or disable a rule (signed in only) |
+| `DELETE /api/rules/:id` | Delete a rule (signed in only) |
+| `GET /api/offline/list` | IDs for the offline stash |
 | `GET /api/settings/ai-models` | Fetch the model list from the configured provider (signed in only) |
 | `GET /api/favicon?host=…`       | Serve a favicon from the local cache                   |
 
@@ -203,6 +222,7 @@ opml.js          Reading and writing OPML
 extract.js       Full text from article pages (own heuristic on cheerio)
 auth.js          Password (scrypt), session cookie, per-route protection
 ai.js            AI providers: summary, translation, briefing
+fever.js         Fever API for phone apps
 config.js        Integrations in the database (Telegram, AI, briefing), seeded from the environment
 errors.js        Errors carrying a translation key
 public/providers.js  List of AI providers (shared by server and UI)

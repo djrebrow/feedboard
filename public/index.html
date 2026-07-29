@@ -75,6 +75,7 @@
         <nav class="dialog-nav" id="settings-nav">
           <button type="button" class="dialog-nav-btn is-active" data-section="appearance" data-i18n="section_appearance">Darstellung</button>
           <button type="button" class="dialog-nav-btn" data-section="reading" data-i18n="section_reading">Lesen</button>
+          <button type="button" class="dialog-nav-btn" data-section="feeds" data-i18n="section_feeds">Feeds</button>
           <button type="button" class="dialog-nav-btn" data-section="integrations" data-i18n="section_integrations">Zugänge</button>
           <button type="button" class="dialog-nav-btn" data-section="data" data-i18n="section_data">Daten</button>
           <button type="button" class="dialog-nav-btn" data-section="account" data-i18n="section_account">Zugang</button>
@@ -132,6 +133,60 @@
                             <textarea id="input-mute" class="settings-textarea" rows="3" spellcheck="false" placeholder="…" data-i18n-placeholder="mute_placeholder"></textarea>
                             <button id="btn-mute-save" class="btn btn-accent settings-save" type="button" data-i18n="save">Speichern</button>
                           </div>
+        </section>
+        <section class="dialog-pane" data-pane="feeds">
+          <div class="settings-section">
+            <span class="settings-label" data-i18n="feeds_health_label">Zustand der Feeds</span>
+            <p class="settings-note" data-i18n="feeds_health_hint">Wie oft ein Feed etwas bringt, wann er zuletzt erreichbar war und woran es hakt.</p>
+            <div class="settings-status" id="feeds-health-status"></div>
+            <div class="feed-health" id="feed-health"></div>
+          </div>
+
+          <div class="settings-section">
+            <span class="settings-label" data-i18n="rules_label">Regeln</span>
+            <p class="settings-note" data-i18n="rules_hint">Was mit neuen Artikeln geschehen soll, die auf einen Suchtext passen.</p>
+            <div class="rule-list" id="rule-list"></div>
+
+            <div class="rule-form" id="rule-form" hidden>
+              <div class="settings-pair">
+                <div class="settings-field">
+                  <label class="settings-field-label" for="rule-feed" data-i18n="rule_feed_label">Gilt für</label>
+                  <select id="rule-feed" class="settings-input"></select>
+                </div>
+                <div class="settings-field">
+                  <label class="settings-field-label" for="rule-field" data-i18n="rule_field_label">Sucht in</label>
+                  <select id="rule-field" class="settings-input">
+                    <option value="any" data-i18n="rule_field_any">Titel und Text</option>
+                    <option value="title" data-i18n="rule_field_title">nur Titel</option>
+                    <option value="summary" data-i18n="rule_field_summary">nur Text</option>
+                  </select>
+                </div>
+              </div>
+              <div class="settings-pair">
+                <div class="settings-field">
+                  <label class="settings-field-label" for="rule-pattern" data-i18n="rule_pattern_label">Enthält</label>
+                  <input type="text" id="rule-pattern" class="settings-input" autocomplete="off" data-i18n-placeholder="rule_pattern_placeholder" placeholder="z. B. Gewinnspiel">
+                </div>
+                <div class="settings-field">
+                  <label class="settings-field-label" for="rule-action" data-i18n="rule_action_label">Dann</label>
+                  <select id="rule-action" class="settings-input">
+                    <option value="read" data-i18n="rule_action_read">als gelesen markieren</option>
+                    <option value="star" data-i18n="rule_action_star">mit Stern versehen</option>
+                    <option value="hide" data-i18n="rule_action_hide">verbergen</option>
+                  </select>
+                </div>
+              </div>
+              <label class="settings-toggle">
+                <input type="checkbox" id="rule-apply-now" checked>
+                <span data-i18n="rule_apply_now">Auch auf vorhandene Artikel anwenden</span>
+              </label>
+              <div class="settings-status" id="rule-status"></div>
+              <div class="settings-buttons">
+                <button id="btn-rule-add" class="btn btn-accent" type="button" data-i18n="rule_add">Regel anlegen</button>
+              </div>
+            </div>
+            <p class="settings-note" id="rules-locked" hidden data-i18n="integrations_locked">Zum Einrichten bitte anmelden.</p>
+          </div>
         </section>
         <section class="dialog-pane" data-pane="integrations">
           <div class="settings-section" id="settings-ai" hidden>
@@ -243,11 +298,51 @@
                             <button id="btn-integrations-save" class="btn btn-accent" type="button" data-i18n="save">Speichern</button>
                             <button id="btn-integrations-test" class="btn" type="button" data-i18n="tg_test">Testnachricht</button>
                           </div>
+
+                          <!-- Zugang fuer Handy-Apps (Fever-Protokoll) -->
+                          <div class="settings-subsection">
+                            <span class="settings-label" data-i18n="fever_label">Handy-App</span>
+                            <div class="settings-pair">
+                              <div class="settings-field">
+                                <label class="settings-field-label" for="input-fever-user">
+                                  <span data-i18n="fever_user_label">Benutzername</span>
+                                  <button type="button" class="help-btn" data-help="fever" aria-expanded="false" aria-controls="help-fever" data-i18n-title="help_title" title="Anleitung anzeigen">?</button>
+                                </label>
+                                <input type="text" id="input-fever-user" class="settings-input" autocomplete="off" spellcheck="false">
+                              </div>
+                              <div class="settings-field">
+                                <label class="settings-field-label" for="input-fever-password">
+                                  <span data-i18n="fever_password_label">Wort für die App</span>
+                                  <button type="button" class="settings-clear" id="clear-fever" hidden data-i18n="clear">entfernen</button>
+                                </label>
+                                <input type="password" id="input-fever-password" class="settings-input" autocomplete="off" spellcheck="false">
+                              </div>
+                            </div>
+                            <div class="field-help" id="help-fever" hidden></div>
+                            <div class="settings-status" id="fever-status"></div>
+                            <div class="settings-buttons">
+                              <button id="btn-fever-save" class="btn" type="button" data-i18n="fever_save">Zugang einrichten</button>
+                            </div>
+                          </div>
                         </div>
         </section>
         <section class="dialog-pane" data-pane="data">
           <div class="settings-section">
             <span class="settings-label" data-i18n="data_label">Daten</span>
+            <div class="settings-subsection" style="margin-top:0;padding-top:0;border-top:none">
+              <span class="settings-field-label">
+                <span data-i18n="offline_label">Offline lesen</span>
+              </span>
+              <p class="settings-note" data-i18n="offline_hint">Legt gespeicherte und ungelesene Artikel samt Text im Browser ab, damit sie ohne Netz lesbar bleiben.</p>
+              <label class="settings-toggle">
+                <input type="checkbox" id="chk-offline-fulltext" checked>
+                <span data-i18n="offline_fulltext">Volltext von den Webseiten nachladen (dauert länger)</span>
+              </label>
+              <div class="settings-status" id="offline-status"></div>
+              <div class="settings-buttons">
+                <button id="btn-offline" class="btn" type="button" data-i18n="offline_prepare">Vorrat anlegen</button>
+              </div>
+            </div>
                             <div class="settings-buttons">
                               <a class="btn" href="/api/opml" download data-i18n="opml_export">OPML exportieren</a>
                               <button class="btn" id="btn-opml-import" type="button" data-i18n="opml_import">OPML einlesen</button>

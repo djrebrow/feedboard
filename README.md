@@ -37,6 +37,11 @@ Beide Funktionen sind aus, solange sie nicht eingerichtet sind — die Knöpfe e
 - **Tages-Briefing**: alle ungelesenen Artikel der letzten 24 Stunden nach Themen gebündelt (Einstellungsfenster, Bereich „Zugänge"); wird sechs Stunden lang wiederverwendet
 - **Artikel per Telegram teilen** — an den eigenen Chat über einen Bot
 - **Geplantes Briefing per Telegram**: Uhrzeit und Wochentage im Einstellungsfenster wählen, den Rest erledigt Feedboard. Die Uhrzeit gilt in der Zeitzone des Servers, sie steht neben dem Feld
+- **Regeln**: „Titel enthält X → als gelesen markieren, mit Stern versehen oder verbergen", je Feed oder für alle. Auf Wunsch gleich rückwirkend auf den Bestand
+- **Zustand der Feeds** im Einstellungsfenster: wie oft ein Feed etwas bringt, wann er zuletzt erreichbar war, woran es hakt — und ein Knopf für Feeds, die sich nach zu vielen Fehlern selbst pausiert haben
+- **Bedingtes Abrufen**: Feedboard merkt sich ETag und Last-Modified je Feed und fragt beim nächsten Mal nur nach Änderungen. In der Messung 27 % weniger Übertragung
+- **Volltextsuche** über einen SQLite-Index (FTS5, Trigramm-Tokenizer): Teilwortsuche wie bisher, aber 5- bis 23-mal schneller, Treffer im Titel zuerst
+- **Offline lesen**: gespeicherte und ungelesene Artikel lassen sich samt Text im Browser ablegen
 - **Einrichtung im Fenster**: Bot-Token, Chat-ID, KI-Anbieter samt Schlüssel und Modell sowie das Briefing (Uhrzeit und Wochentage) sind nach der Anmeldung unter „Zugänge" setzbar, samt Knopf für eine Testnachricht. Ein Fragezeichen an jedem Feld klappt eine kurze Anleitung auf — beim API-Schlüssel mit der Adresse des gerade gewählten Anbieters. Die Geheimnisse verlassen den Server nie wieder — angezeigt werden nur ihre letzten vier Zeichen
 
 ### Sicherheit & Sicherung
@@ -82,6 +87,12 @@ docker compose up -d --build
 ```
 
 Die Datenbank liegt im Ordner `./data` und überlebt Container-Neustarts und -Updates.
+
+## Handy-Apps (Fever-Schnittstelle)
+
+Feedboard spricht das Fever-Protokoll, das NetNewsWire, Reeder, FeedMe und Fluent Reader verstehen. Der Zugang wird im Einstellungsfenster unter „Zugänge" eingerichtet: ein eigener Benutzername und ein eigenes Wort — **nicht** das Passwort von Feedboard. Gespeichert wird davon nur der md5-Wert, den die App ohnehin schickt.
+
+In der App ein Konto vom Typ „Fever" anlegen und als Adresse `https://deine-adresse/fever` eintragen. Gelesen und gespeichert gleichen sich danach in beide Richtungen ab.
 
 ## Konfiguration (Umgebungsvariablen)
 
@@ -153,6 +164,14 @@ Für Docker liegen die optionalen Werte am besten in einer `.env` neben der `doc
 | `GET /api/settings/integrations` | Zugänge lesen (nur angemeldet; ohne Geheimnisse)           |
 | `PUT /api/settings/integrations` | Zugänge setzen (nur angemeldet; fehlende Felder unverändert) |
 | `POST /api/settings/integrations/test-telegram` | Testnachricht schicken (nur angemeldet)     |
+| `PUT /api/settings/fever` | Zugang für Handy-Apps setzen oder entfernen (nur angemeldet) |
+| `ALL /fever` | Fever-Schnittstelle für Handy-Apps (eigener Schlüssel, kein Cookie) |
+| `GET /api/feeds/health` | Zustand aller Feeds: Häufigkeit, letzter Erfolg, Fehler, Auto-Pause |
+| `GET /api/rules` | Regeln lesen |
+| `POST /api/rules` | Regel anlegen, auf Wunsch rückwirkend anwenden (nur angemeldet) |
+| `PATCH /api/rules/:id` | Regel an- oder abschalten (nur angemeldet) |
+| `DELETE /api/rules/:id` | Regel löschen (nur angemeldet) |
+| `GET /api/offline/list` | IDs für den Offline-Vorrat |
 | `GET /api/settings/ai-models` | Modellliste beim eingerichteten Anbieter abrufen (nur angemeldet) |
 | `GET /api/favicon?host=…`        | Favicon über den lokalen Cache ausliefern                  |
 
@@ -203,6 +222,7 @@ opml.js          OPML lesen und schreiben
 extract.js       Volltext aus Artikelseiten (eigene Heuristik auf cheerio)
 auth.js          Passwort (scrypt), Session-Cookie, Schutz einzelner Routen
 ai.js            KI-Anbieter: Kurzfassung, Übersetzung, Briefing
+fever.js         Fever-Schnittstelle für Handy-Apps
 config.js        Zugänge in der Datenbank (Telegram, KI, Briefing), Startwerte aus der Umgebung
 errors.js        Fehler mit Übersetzungsschlüssel
 public/providers.js  Liste der KI-Anbieter (Server und Oberfläche teilen sie sich)

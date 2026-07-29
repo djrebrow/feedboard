@@ -86,6 +86,27 @@ const integrationsData = {
   timezone: 'Europe/Berlin',
 };
 
+const healthData = {
+  auto_disable_after: 20,
+  feeds: [
+    { id: 10, name: 'heise online', category_name: 'Technik', enabled: true, error_count: 0, last_error: null,
+      last_fetched_at: null, not_modified_count: 3, conditional: true, articles: 30, unread: 5, per_week: 21 },
+    { id: 11, name: 'Kaputt', category_name: 'Technik', enabled: true, error_count: 2, last_error: 'HTTP 404 Not Found',
+      last_fetched_at: null, not_modified_count: 0, conditional: false, articles: 0, unread: 0, per_week: 0 },
+    { id: 12, name: 'Abgeschaltet', category_name: 'Welt', enabled: false, error_count: 20, last_error: 'timeout',
+      last_fetched_at: null, not_modified_count: 0, conditional: false, articles: 4, unread: 0, per_week: 0 },
+  ],
+};
+
+const rulesData = {
+  fields: ['title', 'summary', 'any'],
+  actions: ['read', 'star', 'hide'],
+  rules: [
+    { id: 1, feed_id: null, feed_name: null, field: 'title', pattern: 'Gewinnspiel', action: 'read', enabled: true, hits: 4 },
+    { id: 2, feed_id: 10, feed_name: 'heise online', field: 'any', pattern: 'Wochenrueckblick', action: 'hide', enabled: false, hits: 0 },
+  ],
+};
+
 async function run() {
   const dom = new JSDOM(html, {
     url: 'http://localhost:8321/',
@@ -112,6 +133,12 @@ async function run() {
     }
     if (String(url).includes('/api/settings/integrations')) {
       return { ok: true, status: 200, json: async () => structuredClone(integrationsData) };
+    }
+    if (String(url).includes('/api/feeds/health')) {
+      return { ok: true, status: 200, json: async () => structuredClone(healthData) };
+    }
+    if (String(url).includes('/api/rules')) {
+      return { ok: true, status: 200, json: async () => structuredClone(rulesData) };
     }
     return { ok: true, status: 200, json: async () => ({ ok: true }) };
   };
@@ -212,6 +239,12 @@ async function run() {
     if (String(url).includes('/api/settings/integrations')) {
       return { ok: true, status: 200, json: async () => structuredClone(integrationsData) };
     }
+    if (String(url).includes('/api/feeds/health')) {
+      return { ok: true, status: 200, json: async () => structuredClone(healthData) };
+    }
+    if (String(url).includes('/api/rules')) {
+      return { ok: true, status: 200, json: async () => structuredClone(rulesData) };
+    }
     return { ok: true, status: 200, json: async () => ({ ok: true }) };
   };
   doc.getElementById('btn-refresh').dispatchEvent(new window.Event('click', { bubbles: true }));
@@ -231,7 +264,11 @@ async function run() {
 
   // Empty-State testen
   window.fetch = async (url) => i18nAntwort(url)
-    || (String(url).includes('/api/settings/integrations')
+    || (String(url).includes('/api/rules')
+      ? { ok: true, status: 200, json: async () => structuredClone(rulesData) }
+      : String(url).includes('/api/feeds/health')
+      ? { ok: true, status: 200, json: async () => structuredClone(healthData) }
+      : String(url).includes('/api/settings/integrations')
       ? { ok: true, status: 200, json: async () => structuredClone(integrationsData) }
       : { ok: true, status: 200, json: async () => ({ categories: [], refreshing: false, fetch_interval_minutes: 30 }) });
   doc.getElementById('btn-refresh').dispatchEvent(new window.Event('click', { bubbles: true }));
@@ -305,7 +342,7 @@ async function run() {
   doc.getElementById('btn-settings').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 50));
   check('Dialog: öffnet über das Zahnrad', dialog.hidden === false);
-  check('Dialog: sechs Bereiche', doc.querySelectorAll('#settings-nav .dialog-nav-btn').length === 6);
+  check('Dialog: sieben Bereiche', doc.querySelectorAll('#settings-nav .dialog-nav-btn').length === 7);
   check('Dialog: Darstellung ist offen', doc.querySelector('.dialog-pane.is-active')?.dataset.pane === 'appearance');
   check('Dialog: nur ein Bereich sichtbar', doc.querySelectorAll('.dialog-pane.is-active').length === 1);
 
@@ -323,6 +360,39 @@ async function run() {
   doc.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   await new Promise((r) => setTimeout(r, 30));
   check('Dialog: Escape schließt', dialog.hidden === true);
+
+  // Zustand der Feeds
+  doc.getElementById('btn-settings').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  doc.querySelector('#settings-nav [data-section="feeds"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 120));
+  check('Feeds: eine Zeile je Feed', doc.querySelectorAll('#feed-health .feed-health-row').length === 3);
+  check('Feeds: Ampel unterscheidet ok, Fehler und pausiert',
+    doc.querySelectorAll('#feed-health .is-ok').length === 1
+    && doc.querySelectorAll('#feed-health .is-fehler').length === 1
+    && doc.querySelectorAll('#feed-health .is-aus').length === 1);
+  check('Feeds: Fehlermeldung steht dabei',
+    doc.querySelector('#feed-health .feed-health-error')?.textContent === 'HTTP 404 Not Found');
+  check('Feeds: nur der pausierte hat einen Einschaltknopf',
+    doc.querySelectorAll('#feed-health .feed-health-on').length === 1
+    && doc.querySelector('#feed-health .feed-health-on').dataset.feed === '12');
+  check('Feeds: Zusammenfassung nennt die Zahlen',
+    doc.getElementById('feeds-health-status').textContent === '3 Feeds, 1 pausiert, 1 mit Fehler.');
+  check('Feeds: bedingtes Abrufen wird ausgewiesen',
+    doc.querySelector('#feed-health .feed-health-meta').textContent.includes('fragt vor dem Laden'));
+  // Regeln stehen im selben Bereich
+  check('Regeln: eine Zeile je Regel', doc.querySelectorAll('#rule-list .rule-row').length === 2);
+  check('Regeln: als Satz lesbar',
+    doc.querySelector('#rule-list .rule-text').textContent
+      === 'alle Feeds: wenn nur Titel „Gewinnspiel“ enthält → als gelesen markieren');
+  check('Regeln: abgeschaltete sind erkennbar', doc.querySelectorAll('#rule-list .rule-row.is-off').length === 1);
+  check('Regeln: Treffer werden angezeigt',
+    doc.querySelector('#rule-list .rule-meta').textContent === '4-mal angewendet');
+  check('Regeln: Feed-Auswahl kennt „alle Feeds“',
+    doc.querySelector('#rule-feed option').textContent === 'alle Feeds');
+  check('Regeln: Formular sichtbar, Sperrhinweis nicht',
+    !doc.getElementById('rule-form').hidden && doc.getElementById('rules-locked').hidden);
+
+  doc.getElementById('btn-settings-close').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 
   check('Werkzeugleiste: Stift und Design sind heraus gewandert',
     !!doc.querySelector('.toolbar #btn-edit') && !!doc.querySelector('.toolbar #btn-theme'));
@@ -389,8 +459,8 @@ async function run() {
     doc.getElementById('clear-ai-key').hidden === true && !doc.getElementById('input-ai-key').placeholder.includes('····'));
 
   // Anleitungen an den Feldern
-  check('Hilfe: sechs Fragezeichen mit je einem Block',
-    doc.querySelectorAll('.help-btn').length === 6
+  check('Hilfe: sieben Fragezeichen mit je einem Block',
+    doc.querySelectorAll('.help-btn').length === 7
     && [...doc.querySelectorAll('.help-btn')].every((k) => doc.getElementById(`help-${k.dataset.help}`)));
   const hilfeKnopf = doc.querySelector('.help-btn[data-help="tg_token"]');
   const hilfeBlock = doc.getElementById('help-tg_token');
@@ -476,6 +546,11 @@ async function run() {
     doc.getElementById('integrations-status').textContent.includes('nur Vorgaben')
     && doc.getElementById('integrations-status').classList.contains('is-error'));
   window.fetch = alterFetch;
+  check('Handy-App: Zugangsfelder vorhanden',
+    !!doc.getElementById('input-fever-user') && !!doc.getElementById('input-fever-password'));
+  check('Offline: Knopf und Volltext-Schalter im Daten-Bereich',
+    !!doc.getElementById('btn-offline') && doc.getElementById('chk-offline-fulltext').checked);
+
   check('Zugänge: Token nur als Hinweis, Feld leer',
     doc.getElementById('input-tg-token').value === '' && doc.getElementById('input-tg-token').placeholder.includes('····1234'));
 
