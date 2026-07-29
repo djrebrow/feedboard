@@ -319,5 +319,6 @@
   "offline_progress": "{n} of {total} …",
   "offline_ready": "{n} articles prepared, {text} of them with full text.",
   "err_offline_missing": "Offline and not prepared.",
-  "offline_fulltext": "Fetch full text from the websites (takes longer)"
+  "offline_fulltext": "Fetch full text from the websites (takes longer)",
+  "feed_health_paused_manual": "Paused manually."
 }

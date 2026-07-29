@@ -321,5 +321,6 @@
   "offline_progress": "{n} из {total} …",
   "offline_ready": "Подготовлено статей: {n}, с полным текстом: {text}.",
   "err_offline_missing": "Офлайн, и статья не подготовлена.",
-  "offline_fulltext": "Загружать полный текст с сайтов (дольше)"
+  "offline_fulltext": "Загружать полный текст с сайтов (дольше)",
+  "feed_health_paused_manual": "Поставлена на паузу вручную."
 }

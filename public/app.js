@@ -1255,7 +1255,9 @@
           <div class="feed-health-name">${esc(f.name)}<span class="feed-health-cat">${esc(f.category_name)}</span></div>
           <div class="feed-health-meta">${esc(zeilen)}</div>
           ${f.last_error ? `<div class="feed-health-error">${esc(f.last_error)}</div>` : ''}
-          ${!f.enabled ? `<div class="feed-health-meta">${esc(t('feed_health_paused', { n: f.error_count }))}</div>` : ''}
+          ${!f.enabled ? `<div class="feed-health-meta">${esc(f.error_count
+            ? t('feed_health_paused', { n: f.error_count })
+            : t('feed_health_paused_manual'))}</div>` : ''}
         </div>
         ${!f.enabled && !needsLogin() ? `<button type="button" class="btn feed-health-on" data-feed="${f.id}">${esc(t('feed_health_enable'))}</button>` : ''}
       </div>`;

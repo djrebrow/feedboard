@@ -235,10 +235,34 @@ async function ladeFeedText(feed) {
 
   return {
     unveraendert: false,
-    text: await antwort.text(),
+    text: entschluessele(await antwort.arrayBuffer(), antwort.headers.get('content-type')),
     etag: antwort.headers.get('etag'),
     lastModified: antwort.headers.get('last-modified'),
   };
+}
+
+// Nicht jeder Feed ist UTF-8: Golem etwa liefert ISO-8859-1. Response.text()
+// waere hier falsch — es dekodiert laut Spezifikation immer als UTF-8 und
+// ignoriert das charset aus der Kopfzeile. Aus "erhältlich" wuerde
+// "erh<fffd>ltlich". Deshalb selbst dekodieren: erst nach dem charset der
+// Kopfzeile, sonst nach der XML-Deklaration im Rumpf.
+function entschluessele(rohdaten, contentType) {
+  const ausKopf = /charset=["']?([\w-]+)/i.exec(contentType || '')?.[1];
+
+  // Die Deklaration steht im ASCII-Bereich, also ist Latin-1 zum Nachsehen
+  // sicher — egal, was tatsaechlich drin steht.
+  const anfang = new TextDecoder('iso-8859-1').decode(rohdaten.slice(0, 200));
+  const ausRumpf = /<\?xml[^>]*encoding=["']([\w-]+)["']/i.exec(anfang)?.[1];
+
+  for (const name of [ausKopf, ausRumpf, 'utf-8']) {
+    if (!name) continue;
+    try {
+      return new TextDecoder(name).decode(rohdaten);
+    } catch {
+      // Unbekannter Name (etwa "utf8mb4") — der naechste Kandidat ist dran
+    }
+  }
+  return new TextDecoder('utf-8').decode(rohdaten);
 }
 
 async function fetchFeed(feed) {

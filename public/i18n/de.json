@@ -319,5 +319,6 @@
   "offline_progress": "{n} von {total} …",
   "offline_ready": "{n} Artikel im Vorrat, davon {text} mit Volltext.",
   "err_offline_missing": "Offline und nicht im Vorrat.",
-  "offline_fulltext": "Volltext von den Webseiten nachladen (dauert länger)"
+  "offline_fulltext": "Volltext von den Webseiten nachladen (dauert länger)",
+  "feed_health_paused_manual": "Von Hand pausiert."
 }
