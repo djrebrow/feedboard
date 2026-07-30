@@ -10,9 +10,11 @@
 // Server-Logs und in `last_error` an den Feeds.
 'use strict';
 
-function fehler(code, text, params = null) {
+// status: nur setzen, wenn 400 nicht passt — etwa 429 bei einer Bremse.
+function fehler(code, text, params = null, status = 400) {
   const error = new Error(text);
   error.code = code;
+  error.status = status;
   if (params) error.params = params;
   return error;
 }

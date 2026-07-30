@@ -75,6 +75,9 @@ Both stay switched off until they are set up — the buttons never even appear. 
 - **Set and change the password in the settings window** under "Access". It is stored as an scrypt hash in the database; `FEEDBOARD_PASSWORD` creates the first one on the very first start. Changing it logs every other session out.
 - With no password set everything stays open as before — an update changes nothing for existing installations.
 - **JSON backup** to download and restore (categories, feeds, articles, settings). Credentials are deliberately left out and survive a restore. Restoring replaces the rest and runs in a transaction — if it fails, the old database is left untouched.
+- **Content Security Policy** and the usual protective headers (`nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options`, `Permissions-Policy`). Feedboard displays foreign content; the interface escapes it, the CSP is the second line behind that. The only inline script lives on the login page, which is given a nonce as it is served
+- **No external calls while reading**: the fonts are shipped as woff2 in `public/fonts/` instead of coming from Google (SIL OFL 1.1, see `public/fonts/OFL.txt`). Together with the favicon cache, Feedboard can be run without a reader's browser contacting any third party
+- **Refresh throttle**: without a login, a full refresh may be triggered at most once a minute and a single feed at most every ten seconds per client IP (`429` including the wait). Logged in, there is no limit. The button in the browser still works without a login — a loop against it does not
 
 ### Appearance & operation
 
@@ -86,6 +89,7 @@ Both stay switched off until they are set up — the buttons never even appear. 
 - **Installable as a PWA**; the app shell and the most recently loaded data are available offline
 - **Automatic background refresh** (default: every 30 minutes) plus manual refresh, for a single feed or all of them
 - Per-feed error display (⚠ with details). 30 read articles are kept per feed; unread and saved ones stay (hard cap at 300 per feed)
+- **Compressed delivery**: responses and files are sent gzipped whenever the browser offers it. `/api/board` shrinks from a good 1 MB to around 340 KB, `app.js` from 116 to 30 KB. Files from `public/` are compressed once and then served from memory
 - SQLite via the **built-in `node:sqlite`** — no native dependencies, no compiling (ideal for a Raspberry Pi)
 
 ## Requirements
@@ -177,8 +181,8 @@ For Docker, the optional values are best kept in a `.env` next to `docker-compos
 | `PATCH /api/feeds/:id`        | Rename or pause a feed `{ name?, enabled? }`                                       |
 | `DELETE /api/feeds/:id`       | Delete a feed                                                                      |
 | `POST /api/feeds/reorder`     | Set the feed order `{ ids: […] }`                                                  |
-| `POST /api/feeds/:id/refresh` | Refresh a single feed immediately                                                  |
-| `POST /api/refresh`           | Refresh all feeds immediately                                                      |
+| `POST /api/feeds/:id/refresh` | Refresh a single feed immediately (without a login at most every 10 s per IP, otherwise `429`) |
+| `POST /api/refresh`           | Refresh all feeds immediately (without a login at most once a minute per IP, otherwise `429`) |
 
 ### Reading, saving, searching
 
@@ -272,6 +276,7 @@ errors.js        Errors carrying a translation key
 public/providers.js  List of AI providers (shared by server and UI)
 public/schedule.js   Briefing schedule: time and weekdays
 public/          Frontend (HTML/CSS/JS, no framework, PWA) incl. login.html
+public/fonts/    Fonts as woff2 (Fraunces, Libre Franklin — SIL OFL 1.1, see OFL.txt)
 data/            SQLite database and favicon cache (created automatically)
 ```
 

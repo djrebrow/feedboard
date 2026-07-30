@@ -189,6 +189,7 @@
   "err_backup_no_categories": "The backup contains no categories.",
   "err_restore_failed": "Restore failed: {msg}",
   "err_refresh_failed": "Refresh failed: {msg}",
+  "err_too_many_refreshes": "Refreshed too often. Please try again in {seconds} seconds.",
   "err_too_many_attempts": "Too many failed attempts. Please try again in {minutes} minutes.",
   "err_wrong_password": "Wrong password.",
   "err_no_password_set": "No password has been set.",

@@ -75,6 +75,9 @@ Beide Funktionen sind aus, solange sie nicht eingerichtet sind — die Knöpfe e
 - **Passwort setzen und ändern im Einstellungsfenster** unter „Zugang". Das Passwort liegt als scrypt-Hash in der Datenbank; `FEEDBOARD_PASSWORD` legt beim allerersten Start eines an. Eine Änderung meldet alle anderen Sitzungen ab.
 - Ohne gesetztes Passwort bleibt alles wie bisher offen — bestehende Installationen ändern sich durch ein Update nicht.
 - **Sicherung als JSON** herunterladen und wieder einspielen (Rubriken, Feeds, Artikel, Einstellungen). Zugangsdaten sind bewusst nicht enthalten und überleben eine Wiederherstellung. Das Einspielen ersetzt den restlichen Bestand und läuft in einer Transaktion — schlägt es fehl, bleibt die alte Datenbank unverändert.
+- **Content Security Policy** und die üblichen Schutz-Kopfzeilen (`nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options`, `Permissions-Policy`). Feedboard zeigt fremde Inhalte an; die Oberfläche escaped sie, die CSP ist die zweite Reihe dahinter. Inline-Skripte gibt es nur auf der Anmeldeseite, und die bekommt beim Ausliefern einen Nonce
+- **Keine externen Aufrufe beim Anzeigen**: die Schriften liegen als woff2 in `public/fonts/` statt bei Google (SIL OFL 1.1, siehe `public/fonts/OFL.txt`). Zusammen mit dem Favicon-Cache lässt sich Feedboard so betreiben, ohne dass der Browser des Lesers einen fremden Dienst kontaktiert
+- **Bremse fürs Aktualisieren**: ohne Anmeldung darf ein Vollrefresh höchstens einmal pro Minute und ein einzelner Feed höchstens alle zehn Sekunden je Absender-IP angestoßen werden (`429` mit Wartezeit). Angemeldet gilt keine Grenze. Der Knopf im Browser funktioniert weiterhin ohne Anmeldung — nur eine Schleife dagegen nicht mehr
 
 ### Darstellung & Betrieb
 
@@ -86,6 +89,7 @@ Beide Funktionen sind aus, solange sie nicht eingerichtet sind — die Knöpfe e
 - **Installierbar als PWA**, App-Grundgerüst und zuletzt geladene Daten sind offline verfügbar
 - **Automatische Aktualisierung** im Hintergrund (Standard: alle 30 Minuten) plus manueller Refresh, einzeln oder für alle Feeds
 - Fehleranzeige pro Feed (⚠ mit Details). Aufbewahrt werden 30 gelesene Artikel pro Feed; ungelesene und gespeicherte bleiben erhalten (Notbremse bei 300 pro Feed)
+- **Gepackte Auslieferung**: Antworten und Dateien gehen gzip-komprimiert raus, wenn der Browser es anbietet. `/api/board` schrumpft von gut 1 MB auf rund 340 KB, `app.js` von 116 auf 30 KB. Die Dateien aus `public/` werden einmal gepackt und danach aus dem Speicher bedient
 - SQLite über das **eingebaute `node:sqlite`** — keine nativen Abhängigkeiten, kein Kompilieren (ideal für Raspberry Pi)
 
 ## Voraussetzungen
@@ -177,8 +181,8 @@ Für Docker liegen die optionalen Werte am besten in einer `.env` neben der `doc
 | `PATCH /api/feeds/:id`        | Feed umbenennen bzw. pausieren `{ name?, enabled? }`                   |
 | `DELETE /api/feeds/:id`       | Feed löschen                                                           |
 | `POST /api/feeds/reorder`     | Feed-Reihenfolge setzen `{ ids: […] }`                                 |
-| `POST /api/feeds/:id/refresh` | Einzelnen Feed sofort aktualisieren                                    |
-| `POST /api/refresh`           | Alle Feeds sofort aktualisieren                                        |
+| `POST /api/feeds/:id/refresh` | Einzelnen Feed sofort aktualisieren (ohne Anmeldung höchstens alle 10 s je IP, sonst `429`) |
+| `POST /api/refresh`           | Alle Feeds sofort aktualisieren (ohne Anmeldung höchstens jede Minute je IP, sonst `429`) |
 
 ### Lesen, Speichern, Suchen
 
@@ -272,6 +276,7 @@ errors.js        Fehler mit Übersetzungsschlüssel
 public/providers.js  Liste der KI-Anbieter (Server und Oberfläche teilen sie sich)
 public/schedule.js   Briefing-Zeitplan: Uhrzeit und Wochentage
 public/          Frontend (HTML/CSS/JS, ohne Framework, PWA) inkl. login.html
+public/fonts/    Schriften als woff2 (Fraunces, Libre Franklin — SIL OFL 1.1, siehe OFL.txt)
 data/            SQLite-Datenbank und Favicon-Cache (werden automatisch angelegt)
 ```
 

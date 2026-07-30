@@ -6,6 +6,42 @@ Brüchen, die zweite bei neuen Funktionen, die dritte bei Korrekturen.
 
 ## [Unveröffentlicht]
 
+## [2.1.0] — 2026-07-30
+
+Härtung und Sparsamkeit — von außen ändert sich am Aussehen nichts.
+
+### Neu
+
+- **Content Security Policy** und die üblichen Schutz-Kopfzeilen (`nosniff`,
+  `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, `Permissions-Policy`).
+  Feedboard zeigt fremde Inhalte an; die Oberfläche escaped sie, die CSP ist die
+  zweite Reihe dahinter. Bewusst nicht gesetzt: `upgrade-insecure-requests` —
+  viele Installationen laufen im Heimnetz über http.
+- **Schriften kommen nicht mehr von Google.** Fraunces und Libre Franklin liegen
+  als woff2-Teilmengen in `public/fonts/` (SIL OFL 1.1, siehe `OFL.txt` dort).
+  Kein Aufruf bei einem fremden Dienst mehr beim Anzeigen, und offline sieht die
+  PWA aus wie online. Der Browser holt über `unicode-range` nur die Zeichensätze,
+  die er wirklich braucht.
+- **Gzip für Antworten und Dateien.** `/api/board` schrumpft von gut 1 MB auf rund
+  340 KB, `app.js` von 116 auf 30 KB. Gemessen auf einem Raspberry Pi 5 kostet
+  Stufe 4 für das Megabyte 22 ms, Stufe 6 schon 35 ms bei 3 % weniger Umfang —
+  deshalb Stufe 4 für Erzeugtes und Stufe 9 samt Vorrat im Speicher für die
+  unveränderlichen Dateien aus `public/`.
+- **Bremse fürs Aktualisieren.** Ohne Anmeldung darf ein Vollrefresh höchstens
+  einmal pro Minute und ein einzelner Feed höchstens alle zehn Sekunden je
+  Absender-IP angestoßen werden, sonst `429` samt Wartezeit. Angemeldet gilt
+  keine Grenze. Ein Parallellauf war schon vorher ausgeschlossen — eine Schleife
+  aus Einzelabrufen hämmerte aber ungebremst einen fremden Server.
+
+### Geändert
+
+- `/login.html` leitet auf `/login` um: nur dort bekommen Stil und Skript der
+  Anmeldeseite den Nonce, den die CSP verlangt.
+- Fehler tragen jetzt einen HTTP-Status; die API antwortet nicht mehr pauschal
+  mit `400`.
+- Symbolgrößen und der Kachel-Versatz stehen in der CSS-Datei statt als
+  `style`-Attribut im erzeugten HTML — Inline-Stile verbietet die CSP.
+
 ## [2.0.0] — 2026-07-30
 
 Erste veröffentlichte Fassung. Was davor lag, war Entwicklung im eigenen Netz
@@ -86,5 +122,6 @@ eine Liste von Unterschieden.
 - Zustand der Feeds im Einstellungsfenster: Häufigkeit, letzter Erfolg, Fehler
 - SQLite über das eingebaute `node:sqlite` — keine nativen Abhängigkeiten
 
-[Unveröffentlicht]: https://github.com/djrebrow/feedboard/compare/v2.0.0...HEAD
+[Unveröffentlicht]: https://github.com/djrebrow/feedboard/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/djrebrow/feedboard/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/djrebrow/feedboard/releases/tag/v2.0.0

@@ -455,7 +455,7 @@
         <button class="btn-ghost" data-action="feed-up" title="${esc(t('feed_move_up'))}" ${index === 0 ? 'disabled' : ''}>▲</button>
         <button class="btn-ghost" data-action="feed-down" title="${esc(t('feed_move_down'))}" ${index === total - 1 ? 'disabled' : ''}>▼</button>
         <button class="btn-ghost" data-action="feed-rename" title="${esc(t('rename_feed_title'))}">
-          <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          <svg class="icon icon-13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
         </button>
         <button class="btn-ghost btn-danger" data-action="feed-delete" title="${esc(t('delete_feed_title'))}">✕</button>
       </span>`;
@@ -489,7 +489,7 @@
           ${paused ? `<span class="paused-badge" title="${esc(feed.error_count >= 20 ? t('feed_auto_paused') : t('feed_pause_title'))}">${esc(t('feed_paused_badge'))}</span>` : ''}
           ${unread > 0 ? `<span class="unread-badge" title="${esc(t('unread_badge_title', { n: unread }))}">${unread}</span>` : ''}
           ${feed.last_error ? `<span class="feed-error" title="${esc(t('feed_error_prefix'))} ${esc(feed.last_error)}">⚠</span>` : ''}
-          ${unread > 0 ? `<button class="btn-ghost feed-mark-read" data-action="feed-mark-read" title="${esc(t('mark_all_read_title'))}"><svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
+          ${unread > 0 ? `<button class="btn-ghost feed-mark-read" data-action="feed-mark-read" title="${esc(t('mark_all_read_title'))}"><svg class="icon icon-14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
           ${feedToolsHtml(feed, index, total)}
         </div>
         ${articles.length
@@ -542,7 +542,7 @@
     }
 
     return `
-      <div class="category-tile${logo ? ' has-logo' : ''}" data-category-id="${category.id}" data-action="open-category" style="animation-delay:${Math.min(index * 55, 400)}ms">
+      <div class="category-tile${logo ? ' has-logo' : ''}" data-category-id="${category.id}" data-action="open-category" data-delay="${Math.min(index * 55, 400)}">
         ${category.unread > 0 ? `<span class="unread-badge tile-badge" title="${esc(t('unread_badge_title', { n: category.unread }))}">${category.unread}</span>` : ''}
         <div class="category-tile-body">
           ${logo ? `<img class="category-logo" src="${esc(logo)}" alt="">` : ''}
@@ -553,7 +553,7 @@
           <button class="btn-ghost" data-action="category-up" title="${esc(t('category_move_prev'))}" ${index === 0 ? 'disabled' : ''}>◀</button>
           <button class="btn-ghost" data-action="category-down" title="${esc(t('category_move_next'))}" ${index === total - 1 ? 'disabled' : ''}>▶</button>
           <button class="btn-ghost" data-action="category-edit" title="${esc(t('rename_category_title'))}">
-            <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            <svg class="icon icon-13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </button>
           <button class="btn-ghost btn-danger" data-action="category-delete" title="${esc(t('delete_category_title'))}">✕</button>
         </span>
@@ -583,13 +583,13 @@
       <section class="category category-open" data-category-id="${category.id}">
         <div class="category-header">
           <button class="btn-back" data-action="back-to-categories" title="${esc(t('back_all'))}">
-            <svg class="icon" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            <svg class="icon icon-15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
             <span>${esc(t('back_all'))}</span>
           </button>
           <h2 class="category-title">${esc(category.name)}</h2>
           ${unread > 0 ? `<span class="unread-badge" title="${esc(t('unread_badge_title', { n: unread }))}">${unread}</span>` : ''}
           <span class="category-count">${esc(feedCountLabel(feedCount))}</span>
-          ${unread > 0 ? `<button class="btn-ghost category-mark-read" data-action="category-mark-read" title="${esc(t('mark_all_read_title'))}"><svg class="icon" style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
+          ${unread > 0 ? `<button class="btn-ghost category-mark-read" data-action="category-mark-read" title="${esc(t('mark_all_read_title'))}"><svg class="icon icon-15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
         </div>
         <div class="feed-add">
           <form class="feed-add-form" data-action="feed-add">
@@ -833,6 +833,13 @@
     boardEl.innerHTML = categories
       .map((category, index) => categoryTileHtml(category, index, categories.length))
       .join('');
+
+    // Die Kacheln laufen versetzt ein. Der Versatz steht als data-delay im
+    // Markup und wird hier gesetzt: ein style-Attribut im HTML wuerde die CSP
+    // blockieren, ueber das Element selbst ist derselbe Stil erlaubt.
+    for (const tile of boardEl.querySelectorAll('.category-tile[data-delay]')) {
+      tile.style.animationDelay = `${tile.dataset.delay}ms`;
+    }
   }
 
   // -------------------------------------------------------------------------

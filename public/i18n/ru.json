@@ -191,6 +191,7 @@
   "err_backup_no_categories": "В копии нет рубрик.",
   "err_restore_failed": "Восстановление не удалось: {msg}",
   "err_refresh_failed": "Обновление не удалось: {msg}",
+  "err_too_many_refreshes": "Слишком частое обновление. Повторите через {seconds} с.",
   "err_too_many_attempts": "Слишком много попыток. Повторите через {minutes} минут.",
   "err_wrong_password": "Неверный пароль.",
   "err_no_password_set": "Пароль не задан.",

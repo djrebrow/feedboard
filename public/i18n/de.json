@@ -189,6 +189,7 @@
   "err_backup_no_categories": "Die Sicherung enthält keine Rubriken.",
   "err_restore_failed": "Wiederherstellung fehlgeschlagen: {msg}",
   "err_refresh_failed": "Aktualisierung fehlgeschlagen: {msg}",
+  "err_too_many_refreshes": "Zu häufig aktualisiert. Bitte in {seconds} Sekunden erneut versuchen.",
   "err_too_many_attempts": "Zu viele Fehlversuche. Bitte in {minutes} Minuten erneut versuchen.",
   "err_wrong_password": "Falsches Passwort.",
   "err_no_password_set": "Es ist kein Passwort eingerichtet.",

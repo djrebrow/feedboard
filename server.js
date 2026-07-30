@@ -3,6 +3,8 @@
 
 const path = require('node:path');
 const fs = require('node:fs');
+const crypto = require('node:crypto');
+const zlib = require('node:zlib');
 const express = require('express');
 const cron = require('node-cron');
 
@@ -53,6 +55,145 @@ const LOGO_MAX_LENGTH = 1_500_000; // ~1,1 MB Bilddaten als data:-URI
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 // ---------------------------------------------------------------------------
+// Sicherheits-Kopfzeilen
+// ---------------------------------------------------------------------------
+// Feedboard zeigt fremde Inhalte an — Titel, Kurzfassungen, nachgeladenen
+// Volltext und Bilder von beliebigen Servern. Die Oberfläche escaped das alles,
+// die CSP ist die zweite Reihe dahinter: käme doch einmal ein <script> durch,
+// führt der Browser es nicht aus.
+//
+// Steht bewusst vor der Kompression: die Kopfzeilen sollen auch an den
+// statischen Dateien hängen, die gleich darunter direkt beantwortet werden.
+//
+// Bewusst NICHT gesetzt: upgrade-insecure-requests. Viele Installationen laufen
+// im Heimnetz über http, das würde sie unerreichbar machen.
+
+function cspHeader(nonce) {
+  return [
+    "default-src 'self'",
+    // Artikelbilder und Favicons kommen von überall her. Das ist der Zweck der
+    // Sache; data: brauchen die Rubrik-Logos aus der Datenbank.
+    "img-src 'self' data: https: http:",
+    "font-src 'self'", // seit die Schriften in public/fonts/ liegen
+    // Der Nonce gilt nur der Anmeldeseite: sie ist bewusst eine einzige,
+    // in sich geschlossene Datei und trägt Stil und Skript inline.
+    `style-src 'self' 'nonce-${nonce}'`,
+    `script-src 'self' 'nonce-${nonce}'`,
+    "connect-src 'self'",
+    "manifest-src 'self'",
+    "worker-src 'self'", // der Service-Worker für den Offline-Betrieb
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+  ].join('; ');
+}
+
+app.use((req, res, next) => {
+  // Ein frischer Nonce je Aufruf — ein fester wäre so gut wie 'unsafe-inline'.
+  res.locals.nonce = crypto.randomBytes(16).toString('base64');
+  res.set({
+    'Content-Security-Policy': cspHeader(res.locals.nonce),
+    'X-Content-Type-Options': 'nosniff',
+    // Die Artikellinks tragen ohnehin rel="noreferrer"; hier gilt es auch für
+    // alles andere. Ein Leser soll dem angeklickten Blatt nicht verraten,
+    // unter welcher Adresse sein Feedboard steht.
+    'Referrer-Policy': 'no-referrer',
+    'X-Frame-Options': 'DENY', // für Browser, die frame-ancestors nicht kennen
+    'Permissions-Policy': 'geolocation=(), camera=(), microphone=()',
+  });
+  next();
+});
+
+// ---------------------------------------------------------------------------
+// Kompression
+// ---------------------------------------------------------------------------
+// /api/board ist der teuerste Aufruf der Anwendung — bei 21 Feeds gut ein
+// Megabyte, und er läuft bei jedem Seitenstart und jedem Refresh. Gepackt sind
+// daraus rund 340 KB.
+//
+// Gemessen auf einem Raspberry Pi 5: Stufe 4 braucht 22 ms für dieses Megabyte,
+// Stufe 6 schon 35 ms bei nur 3 % weniger Umfang. Für Antworten, die bei jedem
+// Aufruf neu entstehen, ist Stufe 4 deshalb der bessere Handel; die
+// unveränderlichen Dateien aus public/ werden einmal mit Stufe 9 gepackt und
+// danach aus dem Speicher bedient.
+
+const GZIP_MIN_BYTES = 1024; // darunter kostet der Kopfzeilen-Aufschlag mehr, als das Packen bringt
+const GZIP_TYPES = /^(?:application\/json|text\/|application\/javascript|application\/manifest\+json|image\/svg\+xml)/;
+
+function acceptsGzip(req) {
+  return /\bgzip\b/.test(req.headers['accept-encoding'] || '');
+}
+
+// Fasst res.send an, damit alles davon profitiert: JSON aus der API ebenso wie
+// das ausgelieferte index.html. Gepackt wird nebenläufig — gzipSync würde den
+// einzigen Thread für die Dauer blockieren.
+app.use((req, res, next) => {
+  if (!acceptsGzip(req)) return next();
+  res.vary('Accept-Encoding');
+
+  const send = res.send.bind(res);
+  res.send = (body) => {
+    if (res.get('Content-Encoding')) return send(body); // schon gepackt (statische Dateien unten)
+    const buffer = Buffer.isBuffer(body) ? body : (typeof body === 'string' ? Buffer.from(body) : null);
+    if (!buffer || buffer.length < GZIP_MIN_BYTES || !GZIP_TYPES.test(res.get('Content-Type') || '')) {
+      return send(body);
+    }
+    zlib.gzip(buffer, { level: 4 }, (error, gepackt) => {
+      // Geht das Packen schief, ist die ungepackte Antwort immer noch richtig.
+      if (error) return send(body);
+      res.set('Content-Encoding', 'gzip');
+      res.removeHeader('Content-Length');
+      send(gepackt);
+    });
+    return res;
+  };
+  next();
+});
+
+// Die Dateien aus public/ ändern sich nur beim Update, also lohnt Stufe 9 und
+// ein Vorrat im Speicher. Der Schlüssel enthält die Änderungszeit: eine
+// geänderte Datei (DEV_ASSETS, eingehängtes public/) wird neu gepackt.
+const STATIC_GZIP = /\.(?:js|css|json|svg|webmanifest)$/;
+const staticGzipCache = new Map();
+
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  if (!STATIC_GZIP.test(req.path) || !acceptsGzip(req)) return next();
+
+  const datei = path.join(PUBLIC_DIR, path.normalize(req.path));
+  // Nach dem Normalisieren darf der Pfad public/ nicht verlassen haben.
+  if (!datei.startsWith(PUBLIC_DIR + path.sep)) return next();
+
+  let stat;
+  try {
+    stat = fs.statSync(datei);
+  } catch {
+    return next(); // gibt es nicht — express.static soll den 404 erzeugen
+  }
+  if (!stat.isFile()) return next();
+
+  const schluessel = `${datei}:${stat.mtimeMs}:${stat.size}`;
+  let gepackt = staticGzipCache.get(schluessel);
+  if (!gepackt) {
+    if (stat.size < GZIP_MIN_BYTES) return next();
+    gepackt = zlib.gzipSync(fs.readFileSync(datei), { level: 9 });
+    // Ältere Stände derselben Datei verwerfen, damit der Vorrat über Updates
+    // hinweg nicht wächst — die anderen Dateien bleiben liegen.
+    for (const alt of staticGzipCache.keys()) {
+      if (alt.startsWith(`${datei}:`)) staticGzipCache.delete(alt);
+    }
+    staticGzipCache.set(schluessel, gepackt);
+  }
+
+  res.type(path.extname(datei));
+  res.set('Content-Encoding', 'gzip');
+  res.vary('Accept-Encoding');
+  res.set('Cache-Control', 'public, max-age=0'); // wie express.static: immer nachfragen, ETag entscheidet
+  res.send(gepackt);
+});
+
+// ---------------------------------------------------------------------------
 // Zugangsschutz: Lesen ist immer frei, geschützt sind nur Eingriffe.
 // Die einzelnen Routen hängen dafür weiter unten `auth.protect` davor.
 // ---------------------------------------------------------------------------
@@ -90,7 +231,13 @@ app.post('/api/password', (req, res) => {
 app.get('/login', (req, res) => {
   if (!auth.isEnabled() || auth.isLoggedIn(req)) return res.redirect('/');
   res.set('Cache-Control', 'no-store');
-  res.type('html').send(fs.readFileSync(path.join(PUBLIC_DIR, 'login.html'), 'utf8'));
+  // Die Anmeldeseite bleibt eine einzige Datei (siehe Kommentar dort). Damit
+  // die CSP ohne 'unsafe-inline' auskommt, bekommen ihr Stil und ihr Skript
+  // beim Ausliefern den Nonce dieses Aufrufs.
+  const html = fs.readFileSync(path.join(PUBLIC_DIR, 'login.html'), 'utf8')
+    .replace('<style>', `<style nonce="${res.locals.nonce}">`)
+    .replace('<script>', `<script nonce="${res.locals.nonce}">`);
+  res.type('html').send(html);
 });
 
 // ---------------------------------------------------------------------------
@@ -128,6 +275,11 @@ app.get(['/', '/index.html'], (req, res) => {
   res.type('html').send(html);
 });
 
+// Die Anmeldeseite gibt es nur unter /login: dort bekommt ihr Inline-Stil und
+// -Skript den CSP-Nonce. Als statische Datei ausgeliefert bliebe die Seite
+// stumm, weil der Browser beides blockiert.
+app.get('/login.html', (req, res) => res.redirect('/login'));
+
 app.use(express.static(PUBLIC_DIR));
 
 // ---------------------------------------------------------------------------
@@ -139,7 +291,7 @@ function asyncHandler(handler) {
     Promise.resolve(handler(req, res)).catch((error) => {
       // Der deutsche Text bleibt drin (Rückfallebene und Server-Logs), der
       // Schlüssel erlaubt der Oberfläche eine übersetzte Meldung.
-      res.status(400).json(toResponse(error));
+      res.status(error?.status || 400).json(toResponse(error));
     });
   };
 }
@@ -690,10 +842,54 @@ app.get('/api/search', asyncHandler(async (req, res) => {
   res.json({ query, results: query ? store.searchArticles(query, 100) : [] });
 }));
 
+// ---------------------------------------------------------------------------
+// Bremse fürs Aktualisieren
+// ---------------------------------------------------------------------------
+// Beide Refresh-Routen stehen offen, denn Lesen steht offen — der Knopf im
+// Browser soll auch ohne Anmeldung wirken. Nur löst jeder Aufruf Abrufe bei
+// fremden Servern aus. refreshAllFeeds() verhindert zwar Parallelläufe
+// (feedFetcher.js), nacheinander ginge es aber beliebig oft, und der
+// Einzel-Feed-Abruf hatte gar keine Bremse: eine Schleife darauf hämmert ein
+// fremdes Blatt, in dessen Log dann die Adresse dieser Installation steht.
+//
+// Angemeldete Sitzungen bleiben ungebremst — wer das Passwort hat, betreibt
+// das Ding.
+
+const REFRESH_ALL_COOLDOWN_MS = 60_000;
+const REFRESH_FEED_COOLDOWN_MS = 10_000;
+const REFRESH_MEMORY_LIMIT = 1000; // so viele Absender merken wir uns höchstens
+const refreshLastSeen = new Map();
+
+function throttleRefresh(req, schluessel, cooldown) {
+  if (auth.isLoggedIn(req)) return;
+
+  const jetzt = Date.now();
+  // Abgelaufene Einträge wegräumen, bevor die Karte unbegrenzt wächst.
+  if (refreshLastSeen.size > REFRESH_MEMORY_LIMIT) {
+    for (const [k, zeit] of refreshLastSeen) {
+      if (jetzt - zeit > REFRESH_ALL_COOLDOWN_MS) refreshLastSeen.delete(k);
+    }
+  }
+
+  const key = `${req.ip || 'unbekannt'}|${schluessel}`;
+  const rest = cooldown - (jetzt - (refreshLastSeen.get(key) || 0));
+  if (rest > 0) {
+    const seconds = Math.ceil(rest / 1000);
+    throw fehler(
+      'too_many_refreshes',
+      `Zu häufig aktualisiert. Bitte in ${seconds} Sekunden erneut versuchen.`,
+      { seconds },
+      429,
+    );
+  }
+  refreshLastSeen.set(key, jetzt);
+}
+
 app.post('/api/feeds/:id/refresh', asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
   const feed = store.getFeed(id);
   if (!feed) throw fehler('feed_not_found', 'Feed nicht gefunden.');
+  throttleRefresh(req, `feed:${id}`, REFRESH_FEED_COOLDOWN_MS);
   const result = await fetcher.fetchFeed(feed);
   if (!result.ok) throw fehler('refresh_failed', `Aktualisierung fehlgeschlagen: ${result.error}`, { msg: result.error });
   res.json({ ok: true, items: result.items });
@@ -704,6 +900,7 @@ app.post('/api/feeds/:id/refresh', asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 
 app.post('/api/refresh', asyncHandler(async (req, res) => {
+  throttleRefresh(req, 'all', REFRESH_ALL_COOLDOWN_MS);
   const result = await fetcher.refreshAllFeeds();
   res.json(result);
 }));
