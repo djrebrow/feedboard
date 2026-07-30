@@ -1,3 +1,6 @@
+# Produktivbetrieb: alles kommt aus dem Image, nichts wird eingehängt.
+# Zum Entwickeln am Frontend gibt es docker-compose.dev.yml daneben:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 services:
   feedboard:
     build: .
@@ -6,14 +9,9 @@ services:
       - "8321:8321"
     volumes:
       - ./data:/app/data
-      # Frontend live aus dem Arbeitsverzeichnis: Änderungen an public/ wirken nach
-      # einem Reload im Browser, ohne Rebuild. Für einen reinen Produktivbetrieb
-      # diese Zeile und DEV_ASSETS entfernen (dann gilt der Stand aus dem Image).
-      - ./public:/app/public:ro
     environment:
       - TZ=Europe/Berlin
       - FETCH_INTERVAL_MINUTES=30
-      - DEV_ASSETS=1
       # Optional, aus einer .env-Datei neben dieser docker-compose.yml.
       # Leer gelassen bleibt die jeweilige Funktion einfach aus.
       #

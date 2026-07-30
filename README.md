@@ -110,7 +110,13 @@ Beim allerersten Start werden Beispiel-Rubriken angelegt (heise, Golem, tagessch
 docker compose up -d --build
 ```
 
-Die Datenbank liegt im Ordner `./data` und überlebt Container-Neustarts und -Updates.
+Die Datenbank liegt im Ordner `./data` und überlebt Container-Neustarts und -Updates. Der Container meldet sich per `HEALTHCHECK` selbst als gesund oder krank — `docker ps` zeigt es in der Spalte `STATUS`.
+
+Zum Entwickeln am Frontend gibt es eine zweite Datei, die auf die erste gelegt wird (siehe [Entwicklung](#entwicklung)):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+```
 
 ## Handy-Apps (Fever-Schnittstelle)
 
@@ -150,6 +156,7 @@ Für Docker liegen die optionalen Werte am besten in einer `.env` neben der `doc
 | ----------------- | ------------------------------------------------------------------------------------------------- |
 | `GET /api/board`  | Gesamtes Board (Rubriken → Feeds → Artikel)                                                        |
 | `GET /api/stats`  | Schlanke Kennzahlen für externe Dashboards: ungelesen, Rubriken, Feeds, fehlerhafte Feeds, Artikel, gespeicherte, letzter Abruf |
+| `GET /api/healthz`| Lebenszeichen für Docker und Uptime-Wächter: `{ status, version, uptime_seconds }`, `503` wenn die Datenbank nicht erreichbar ist. Verrät bewusst nichts über den Inhalt |
 
 ### Rubriken
 
@@ -224,7 +231,14 @@ Für Docker liegen die optionalen Werte am besten in einer `.env` neben der `doc
 
 ## Entwicklung
 
-`smoke-test.js` prüft das Frontend (Rendering, Rubrik-Drill-down, Edit-Modus, Design-Auswahl, XSS-Escaping, „Alle Artikel", Tastatur-Navigation, Artikel-Aktionen, Feed-Pause) ohne Browser. Dafür einmalig `npm install --no-save jsdom`, dann `node smoke-test.js`.
+```bash
+npm install   # jsdom steckt in den devDependencies
+npm test
+```
+
+`smoke-test.js` prüft das Frontend (Rendering, Rubrik-Drill-down, Edit-Modus, Design-Auswahl, XSS-Escaping, „Alle Artikel", Tastatur-Navigation, Artikel-Aktionen, Feed-Pause) ohne Browser — jsdom statt Chrome. Schlägt eine Prüfung fehl, endet der Lauf mit Rückgabewert 1.
+
+**Bei jedem Push auf GitHub** läuft derselbe Test unter Node 22, dazu ein Start des Servers gegen eine frische Datenbank (`/api/healthz` muss antworten) und ein Bau des Docker-Images für `linux/amd64` **und** `linux/arm64` — damit ein Bruch auffällt, bevor jemand ihn auf dem Raspberry Pi baut. Siehe `.github/workflows/ci.yml`.
 
 **Passwort vergessen?** Einmal den Hash löschen, dann greift beim nächsten Start wieder `FEEDBOARD_PASSWORD`:
 
@@ -233,7 +247,13 @@ docker compose exec feedboard node -e "require('./db').setSetting('password_hash
 docker compose restart
 ```
 
-**Frontend ohne Rebuild ändern:** `docker-compose.yml` hängt `./public` schreibgeschützt in den Container und setzt `DEV_ASSETS=1`. Änderungen an HTML, CSS und JavaScript sind damit nach einem Reload im Browser sichtbar. Änderungen am Backend (`server.js`, `db.js`, `feedFetcher.js`, `telegram.js`, `opml.js`, `extract.js`, `auth.js`, `ai.js`) stecken im Image und brauchen `docker compose up -d --build`. Für einen reinen Produktivbetrieb lassen sich die eingehängte Zeile und `DEV_ASSETS` aus `docker-compose.yml` entfernen.
+**Frontend ohne Rebuild ändern:** `docker-compose.dev.yml` hängt `./public` schreibgeschützt in den Container und setzt `DEV_ASSETS=1`. Änderungen an HTML, CSS und JavaScript sind damit nach einem Reload im Browser sichtbar:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+```
+
+Änderungen am Backend (`server.js`, `db.js`, `feedFetcher.js`, `telegram.js`, `opml.js`, `extract.js`, `auth.js`, `ai.js`) stecken im Image und brauchen in jedem Fall ein `--build`. Die `docker-compose.yml` allein ist die Produktivfassung — dort wird nichts eingehängt, es gilt der Stand aus dem Image.
 
 ## Projektstruktur
 
@@ -254,6 +274,10 @@ public/schedule.js   Briefing-Zeitplan: Uhrzeit und Wochentage
 public/          Frontend (HTML/CSS/JS, ohne Framework, PWA) inkl. login.html
 data/            SQLite-Datenbank und Favicon-Cache (werden automatisch angelegt)
 ```
+
+## Änderungen
+
+Was in welcher Fassung dazukam, steht in [CHANGELOG.md](CHANGELOG.md).
 
 ## Lizenz
 

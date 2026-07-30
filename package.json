@@ -1,10 +1,11 @@
 {
   "name": "feedboard",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "RSS-Dashboard mit Rubriken- und Feed-Verwaltung über die UI",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node smoke-test.js"
   },
   "keywords": [],
   "author": "Evgeny Bochkarev",
@@ -16,5 +17,8 @@
     "express": "^5.2.1",
     "node-cron": "^4.6.0",
     "rss-parser": "^3.13.0"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1"
   }
 }

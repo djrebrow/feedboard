@@ -20,6 +20,7 @@ const providers = require('./public/providers');
 const { fehler, toResponse } = require('./errors');
 
 const PORT = Number(process.env.PORT) || 8321;
+const VERSION = require('./package.json').version;
 const FETCH_INTERVAL_MINUTES = clampInterval(process.env.FETCH_INTERVAL_MINUTES, 30);
 
 // Telegram, API-Schlüssel und Briefing-Zeitplan liegen in der Datenbank und
@@ -189,6 +190,22 @@ app.get('/api/stats', (req, res) => {
     refreshing: fetcher.isRefreshing(),
     fetch_interval_minutes: FETCH_INTERVAL_MINUTES,
   });
+});
+
+// Lebenszeichen für Docker, Reverse Proxies und Uptime-Wächter. Bewusst ohne
+// Zahlen aus dem Bestand: die Antwort steht auch ohne Anmeldung offen, sie soll
+// also nichts über den Inhalt verraten. Antwortet der Prozess zwar, kommt aber
+// nicht mehr an die Datenbank, ist das ein 503 — genau darauf reagiert der
+// HEALTHCHECK im Dockerfile.
+app.get('/api/healthz', (req, res) => {
+  try {
+    store.ping();
+  } catch (error) {
+    res.status(503).json({ status: 'error', error: error.message });
+    return;
+  }
+  res.set('Cache-Control', 'no-store');
+  res.json({ status: 'ok', version: VERSION, uptime_seconds: Math.round(process.uptime()) });
 });
 
 // ---------------------------------------------------------------------------

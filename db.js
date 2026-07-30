@@ -1026,6 +1026,17 @@ function importBackup(data) {
 }
 
 // ---------------------------------------------------------------------------
+// Lebenszeichen für den Healthcheck: die billigste Abfrage, die es gibt.
+// Sie beweist, dass die Datei noch offen und nicht gesperrt ist — genau der
+// Fall, in dem der Prozess zwar läuft, aber nichts mehr ausliefert.
+// ---------------------------------------------------------------------------
+
+function ping() {
+  db.prepare('SELECT 1').get();
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Startbefüllung beim allerersten Start (kann in der UI gelöscht werden)
 // ---------------------------------------------------------------------------
 
@@ -1060,6 +1071,7 @@ function seedIfEmpty() {
 
 module.exports = {
   db,
+  ping,
   getCategories,
   getCategory,
   getCategoryBySlug,

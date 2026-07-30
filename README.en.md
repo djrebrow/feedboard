@@ -110,7 +110,13 @@ On the very first start, example categories are created (heise, Golem, tagesscha
 docker compose up -d --build
 ```
 
-The database lives in the `./data` folder and survives container restarts and updates.
+The database lives in the `./data` folder and survives container restarts and updates. The container reports its own health via `HEALTHCHECK` — `docker ps` shows it in the `STATUS` column.
+
+For frontend development there is a second file layered on top of the first (see [Development](#development)):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+```
 
 ## Phone apps (Fever API)
 
@@ -150,6 +156,7 @@ For Docker, the optional values are best kept in a `.env` next to `docker-compos
 | ----------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `GET /api/board`  | The whole board (categories → feeds → articles)                                                                   |
 | `GET /api/stats`  | Lightweight metrics for external dashboards: unread, categories, feeds, failing feeds, articles, saved, last fetch |
+| `GET /api/healthz`| Liveness probe for Docker and uptime monitors: `{ status, version, uptime_seconds }`, `503` when the database is unreachable. Deliberately reveals nothing about the content |
 
 ### Categories
 
@@ -224,7 +231,14 @@ For Docker, the optional values are best kept in a `.env` next to `docker-compos
 
 ## Development
 
-`smoke-test.js` checks the frontend (rendering, category drill-down, edit mode, theme selection, XSS escaping, "all articles", keyboard navigation, article actions, feed pausing) without a browser. Run `npm install --no-save jsdom` once, then `node smoke-test.js`.
+```bash
+npm install   # jsdom is a devDependency
+npm test
+```
+
+`smoke-test.js` checks the frontend (rendering, category drill-down, edit mode, theme selection, XSS escaping, "all articles", keyboard navigation, article actions, feed pausing) without a browser — jsdom instead of Chrome. If a check fails, the run exits with code 1.
+
+**On every push to GitHub** the same test runs on Node 22, alongside a server start against a fresh database (`/api/healthz` has to answer) and a build of the Docker image for `linux/amd64` **and** `linux/arm64` — so that a breakage shows up before someone builds it on a Raspberry Pi. See `.github/workflows/ci.yml`.
 
 **Forgot the password?** Clear the hash once, then `FEEDBOARD_PASSWORD` applies again on the next start:
 
@@ -233,7 +247,13 @@ docker compose exec feedboard node -e "require('./db').setSetting('password_hash
 docker compose restart
 ```
 
-**Changing the frontend without a rebuild:** `docker-compose.yml` mounts `./public` into the container read-only and sets `DEV_ASSETS=1`. Changes to HTML, CSS and JavaScript are then visible after a reload in the browser. Backend changes (`server.js`, `db.js`, `feedFetcher.js`, `telegram.js`, `opml.js`, `extract.js`, `auth.js`, `ai.js`) live in the image and require `docker compose up -d --build`. For plain production use, the mounted line and `DEV_ASSETS` can be removed from `docker-compose.yml`.
+**Changing the frontend without a rebuild:** `docker-compose.dev.yml` mounts `./public` into the container read-only and sets `DEV_ASSETS=1`. Changes to HTML, CSS and JavaScript are then visible after a reload in the browser:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+```
+
+Backend changes (`server.js`, `db.js`, `feedFetcher.js`, `telegram.js`, `opml.js`, `extract.js`, `auth.js`, `ai.js`) live in the image and always require a `--build`. `docker-compose.yml` on its own is the production setup — nothing is mounted, what runs is what is in the image.
 
 ## Project layout
 
@@ -254,6 +274,10 @@ public/schedule.js   Briefing schedule: time and weekdays
 public/          Frontend (HTML/CSS/JS, no framework, PWA) incl. login.html
 data/            SQLite database and favicon cache (created automatically)
 ```
+
+## Changes
+
+What arrived in which release is listed in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

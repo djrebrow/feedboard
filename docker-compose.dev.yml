@@ -1,0 +1,15 @@
+# Entwicklungs-Aufsatz zur docker-compose.yml — allein ist diese Datei unvollständig:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#
+# Damit liegt das Frontend live im Arbeitsverzeichnis: Änderungen an HTML, CSS
+# und JavaScript sind nach einem Reload im Browser sichtbar, ohne Rebuild.
+# Änderungen am Backend stecken weiterhin im Image und brauchen ein --build.
+services:
+  feedboard:
+    volumes:
+      - ./public:/app/public:ro
+    environment:
+      # Asset-Version bei jedem Seitenaufruf neu aus den Dateizeiten bestimmen,
+      # sonst liefert der Browser die gecachte alte Fassung aus.
+      - DEV_ASSETS=1

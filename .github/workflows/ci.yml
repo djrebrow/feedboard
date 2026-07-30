@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Ein neuer Push auf denselben Branch bricht den vorigen Lauf ab.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Smoke-Test (Node 22)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      # jsdom steckt in den devDependencies, deshalb hier ohne --omit=dev.
+      - run: npm ci
+
+      - name: Smoke-Test
+        run: npm test
+
+      # Der Smoke-Test prueft nur das Frontend (jsdom). Dieser Schritt belegt,
+      # dass der Server ueberhaupt hochkommt: frische Datenbank im Temp-Ordner,
+      # dann /api/healthz fragen.
+      - name: Server startet und antwortet
+        env:
+          DB_PATH: ${{ runner.temp }}/ci.db
+          PORT: '8321'
+        run: |
+          node server.js &
+          server=$!
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8321/api/healthz > /tmp/healthz.json; then
+              cat /tmp/healthz.json
+              kill $server
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server hat 30 s lang nicht geantwortet."
+          kill $server 2>/dev/null || true
+          exit 1
+
+  docker:
+    name: Image bauen (amd64 + arm64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # arm64 wird auf dem amd64-Runner emuliert — das ist der Punkt der Uebung:
+      # Feedboard laeuft vor allem auf dem Raspberry Pi.
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Bauen (ohne Veroeffentlichung)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: feedboard:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
