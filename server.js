@@ -270,7 +270,10 @@ app.get(['/', '/index.html'], (req, res) => {
   // eine alte schedule.js mit einer neuen app.js kombinieren.
   html = html
     .replace('href="style.css"', `href="style.css?v=${version}"`)
-    .replace(/src="((?:app|schedule|providers)\.js)"/g, `src="$1?v=${version}"`);
+    .replace(/src="((?:app|schedule|providers)\.js)"/g, `src="$1?v=${version}"`)
+    // Die Fassung steht in package.json und soll nicht doppelt gepflegt werden.
+    // In der Datei bleibt das Feld leer, damit sie auch ohne Server gültig ist.
+    .replace('<span id="app-version"></span>', `<span id="app-version">${VERSION}</span>`);
   res.set('Cache-Control', 'no-cache');
   res.type('html').send(html);
 });

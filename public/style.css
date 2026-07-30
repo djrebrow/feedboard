@@ -303,6 +303,23 @@ body.dialog-open { overflow: hidden; }
 
 .dialog-body { display: flex; min-height: 0; flex: 1 1 auto; }
 
+/* Fußzeile des Einstellungsfensters: Fassung, Lizenz, Quellcode. flex: 0 0 auto,
+   damit sie auf dem Handy nicht weggedrückt wird, wenn die Panes lang werden. */
+.dialog-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+.dialog-foot-name { margin-right: auto; }
+.dialog-foot-link { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line-strong); }
+.dialog-foot-link:hover { color: var(--accent); border-bottom-color: currentColor; }
+
 .dialog-nav {
   flex: 0 0 168px;
   display: flex;

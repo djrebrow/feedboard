@@ -150,6 +150,7 @@
   "toast_opml_imported": "{feeds} feeds in {categories} new categories imported ({skipped} skipped).",
   "confirm_restore": "The backup replaces all existing categories, feeds and articles. Continue?",
   "toast_restored": "Restored: {categories} categories, {feeds} feeds, {articles} articles.",
+  "source_link": "Source code",
   "shortcuts_label": "Keyboard",
   "shortcut_move": "switch article",
   "shortcut_open": "open article",

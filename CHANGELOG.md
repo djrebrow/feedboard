@@ -6,6 +6,31 @@ Brüchen, die zweite bei neuen Funktionen, die dritte bei Korrekturen.
 
 ## [Unveröffentlicht]
 
+### Neu
+
+- **Fußzeile im Einstellungsfenster** mit Fassung, Lizenz und einem Link zum
+  Quellcode — in jedem Bereich sichtbar, nicht in einem eigenen Reiter versteckt.
+  § 13 der AGPL empfiehlt für Web-Anwendungen genau das: Wer die Anwendung
+  benutzt, soll den Weg zum Quellcode finden. Die Fassung kommt aus
+  `package.json` und wird beim Ausliefern der `index.html` eingesetzt, damit sie
+  nicht an zwei Stellen gepflegt werden muss.
+- **Fertiges Image aus der GitHub Container Registry.** Besteht der Smoke-Test,
+  veröffentlicht die CI nach `ghcr.io/djrebrow/feedboard` — ein Push auf `main`
+  als `:main`, ein Fassungs-Tag als `:2.1.0`, `:2.1` und `:latest`, jeweils für
+  `linux/amd64` und `linux/arm64`. Damit entfällt das Selbstbauen auf dem
+  Raspberry Pi. Pull Requests bauen weiterhin nur.
+
+### Geändert
+
+- **Lizenz: AGPL-3.0-or-later statt PolyForm Noncommercial 1.0.0.** Feedboard ist
+  damit freie Software im Sinne der OSI — nutzen, weitergeben und ändern darf sie
+  jeder, privat wie gewerblich. Die Gegenleistung steht in § 13 der Lizenz: Wer
+  eine geänderte Fassung über ein Netzwerk anbietet, muss den Nutzern dieser
+  Fassung den Quellcode dazu anbieten. Wer Feedboard unverändert betreibt, ist
+  davon nicht betroffen. Die bisherige Lizenz verbot Firmen jede Nutzung, auch die
+  rein interne, und schloss Feedboard gleichzeitig aus Verzeichnissen und
+  App-Stores aus, die eine anerkannte Lizenz verlangen.
+
 ## [2.1.0] — 2026-07-30
 
 Härtung und Sparsamkeit — von außen ändert sich am Aussehen nichts.

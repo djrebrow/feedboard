@@ -114,6 +114,14 @@ On the very first start, example categories are created (heise, Golem, tagesscha
 docker compose up -d --build
 ```
 
+If you would rather not build it yourself, take the prebuilt image from the GitHub Container Registry — it exists for `linux/amd64` and `linux/arm64`, so the Raspberry Pi is covered:
+
+```bash
+docker run -d --name feedboard -p 8321:8321 -v ./data:/app/data --restart unless-stopped ghcr.io/djrebrow/feedboard:latest
+```
+
+`:latest` is the most recent tagged release, `:2.1` and `:2.1.0` pin it, `:main` is the current development state.
+
 The database lives in the `./data` folder and survives container restarts and updates. The container reports its own health via `HEALTHCHECK` — `docker ps` shows it in the `STATUS` column.
 
 For frontend development there is a second file layered on top of the first (see [Development](#development)):
@@ -244,6 +252,8 @@ npm test
 
 **On every push to GitHub** the same test runs on Node 22, alongside a server start against a fresh database (`/api/healthz` has to answer) and a build of the Docker image for `linux/amd64` **and** `linux/arm64` — so that a breakage shows up before someone builds it on a Raspberry Pi. See `.github/workflows/ci.yml`.
 
+If the test passes, the image is published to `ghcr.io/djrebrow/feedboard`: a push to `main` as `:main`, a version tag (`git tag v2.1.0 && git push --tags`) as `:2.1.0`, `:2.1` and `:latest`. Pull requests only build, they do not publish — a fork has no write access to the registry anyway.
+
 **Forgot the password?** Clear the hash once, then `FEEDBOARD_PASSWORD` applies again on the next start:
 
 ```bash
@@ -286,10 +296,15 @@ What arrived in which release is listed in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE.md) — free to use for personal purposes,
-hobby projects, research and teaching, and by charitable organisations,
-educational and research institutions and government bodies. Commercial use is
-not permitted, not even inside a company.
+Copyright © 2026 Evgeny Bochkarev
 
-This means Feedboard is **not open source** in the OSI sense: anyone wanting to
-use it commercially needs a separate arrangement.
+[GNU Affero General Public License, version 3 or later](LICENSE.md) — free
+software. Anyone may use, share and modify it, privately or commercially.
+
+One condition comes with it: whoever runs a **modified** version and makes it
+available to others over a network must offer those users the source code of
+that version (section 13 of the licence). Running Feedboard unmodified, for
+yourself or inside a company, is not affected.
+
+For situations where that disclosure duty is out of the question, a separate
+licence is possible — that needs an arrangement.

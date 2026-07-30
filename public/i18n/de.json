@@ -150,6 +150,7 @@
   "toast_opml_imported": "{feeds} Feeds in {categories} neuen Rubriken übernommen ({skipped} übersprungen).",
   "confirm_restore": "Die Sicherung ersetzt alle vorhandenen Rubriken, Feeds und Artikel. Fortfahren?",
   "toast_restored": "Wiederhergestellt: {categories} Rubriken, {feeds} Feeds, {articles} Artikel.",
+  "source_link": "Quellcode",
   "shortcuts_label": "Tastatur",
   "shortcut_move": "Artikel wechseln",
   "shortcut_open": "Artikel öffnen",

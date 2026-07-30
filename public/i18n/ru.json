@@ -150,6 +150,7 @@
   "toast_opml_imported": "Добавлено лент: {feeds}, новых рубрик: {categories}, пропущено: {skipped}.",
   "confirm_restore": "Копия заменит все рубрики, ленты и статьи. Продолжить?",
   "toast_restored": "Восстановлено: рубрик {categories}, лент {feeds}, статей {articles}.",
+  "source_link": "Исходный код",
   "shortcuts_label": "Клавиши",
   "shortcut_move": "следующая/предыдущая",
   "shortcut_open": "открыть",

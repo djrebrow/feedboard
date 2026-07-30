@@ -554,6 +554,14 @@ async function run() {
   check('Zugänge: Token nur als Hinweis, Feld leer',
     doc.getElementById('input-tg-token').value === '' && doc.getElementById('input-tg-token').placeholder.includes('····1234'));
 
+  // § 13 AGPL empfiehlt, dass die Anwendung selbst den Weg zum Quellcode zeigt.
+  // Der Link steckt in der Fußzeile des Fensters und gilt für jeden Bereich.
+  const quelle = doc.getElementById('link-source');
+  check('Fußzeile: Quellcode-Link vorhanden und übersetzt',
+    !!quelle && quelle.href.startsWith('https://github.com/') && quelle.textContent === 'Quellcode');
+  check('Fußzeile: Feld für die Fassung steht bereit',
+    !!doc.getElementById('app-version'));
+
   console.log(results.join('\n'));
   console.log(errors.length ? `\nJS-Fehler: ${errors.map(String).join(' | ')}` : '\nAlle Smoke-Tests abgeschlossen.');
 
