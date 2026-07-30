@@ -254,3 +254,13 @@ public/schedule.js   Briefing schedule: time and weekdays
 public/          Frontend (HTML/CSS/JS, no framework, PWA) incl. login.html
 data/            SQLite database and favicon cache (created automatically)
 ```
+
+## License
+
+[PolyForm Noncommercial 1.0.0](LICENSE.md) — free to use for personal purposes,
+hobby projects, research and teaching, and by charitable organisations,
+educational and research institutions and government bodies. Commercial use is
+not permitted, not even inside a company.
+
+This means Feedboard is **not open source** in the OSI sense: anyone wanting to
+use it commercially needs a separate arrangement.

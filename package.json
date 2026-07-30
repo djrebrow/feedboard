@@ -7,8 +7,8 @@
     "start": "node server.js"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Evgeny Bochkarev",
+  "license": "SEE LICENSE IN LICENSE.md",
   "type": "commonjs",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
