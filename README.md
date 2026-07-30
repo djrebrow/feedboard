@@ -254,3 +254,13 @@ public/schedule.js   Briefing-Zeitplan: Uhrzeit und Wochentage
 public/          Frontend (HTML/CSS/JS, ohne Framework, PWA) inkl. login.html
 data/            SQLite-Datenbank und Favicon-Cache (werden automatisch angelegt)
 ```
+
+## Lizenz
+
+[PolyForm Noncommercial 1.0.0](LICENSE.md) — nutzbar für private Zwecke, Hobby,
+Forschung und Lehre sowie durch gemeinnützige Organisationen, Bildungs- und
+Forschungseinrichtungen und Behörden. Eine geschäftliche Nutzung ist nicht
+gestattet, auch nicht innerhalb eines Unternehmens.
+
+Damit ist Feedboard **keine Open-Source-Software** im Sinne der OSI: Wer es
+gewerblich einsetzen möchte, braucht eine gesonderte Absprache.
