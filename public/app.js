@@ -502,6 +502,24 @@
 
   // Startseite: Rubrik als anklickbare Kachel ---------------------------------
 
+  // Jüngste Schlagzeile über alle Feeds einer Rubrik. Die Kachel zeigte bisher
+  // nur Name und Feed-Zahl — damit gab sie auf 150 px Höhe keinen Grund,
+  // hinzusehen. Die Daten liegen ohnehin schon im Board vor.
+  function newestHeadline(category) {
+    let bestTime = -Infinity;
+    let bestTitle = '';
+    for (const feed of category.feeds) {
+      for (const article of feed.articles || []) {
+        const stamp = Date.parse(article.published_at || article.fetched_at || '');
+        if (Number.isFinite(stamp) && stamp > bestTime) {
+          bestTime = stamp;
+          bestTitle = article.title || '';
+        }
+      }
+    }
+    return bestTitle;
+  }
+
   function categoryTileHtml(category, index, total) {
     const feedCount = category.feeds.length;
     const logo = safeLogo(category.logo);
@@ -541,14 +559,21 @@
         </div>`;
     }
 
+    const headline = newestHeadline(category);
+
+    // Der Kachelkörper ist ein Knopf, nicht das umgebende div: sonst läge das
+    // Klickziel als reines div ausserhalb des Accessibility-Baums und wäre mit
+    // der Tastatur nicht erreichbar. Die Werkzeuge daneben sind selbst Knöpfe
+    // und dürfen deshalb nicht darin liegen.
     return `
-      <div class="category-tile${logo ? ' has-logo' : ''}" data-category-id="${category.id}" data-action="open-category" data-delay="${Math.min(index * 55, 400)}">
+      <div class="category-tile${logo ? ' has-logo' : ''}" data-category-id="${category.id}" data-delay="${Math.min(index * 55, 400)}">
         ${category.unread > 0 ? `<span class="unread-badge tile-badge" title="${esc(t('unread_badge_title', { n: category.unread }))}">${category.unread}</span>` : ''}
-        <div class="category-tile-body">
+        <button type="button" class="category-tile-body" data-action="open-category">
           ${logo ? `<img class="category-logo" src="${esc(logo)}" alt="">` : ''}
           <span class="category-tile-name">${esc(category.name)}</span>
           <span class="category-tile-count">${esc(feedCountLabel(feedCount))}</span>
-        </div>
+          ${headline ? `<span class="category-tile-latest">${esc(headline)}</span>` : ''}
+        </button>
         <span class="category-tools">
           <button class="btn-ghost" data-action="category-up" title="${esc(t('category_move_prev'))}" ${index === 0 ? 'disabled' : ''}>◀</button>
           <button class="btn-ghost" data-action="category-down" title="${esc(t('category_move_next'))}" ${index === total - 1 ? 'disabled' : ''}>▶</button>

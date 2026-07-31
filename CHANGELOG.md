@@ -6,6 +6,38 @@ Brüchen, die zweite bei neuen Funktionen, die dritte bei Korrekturen.
 
 ## [Unveröffentlicht]
 
+## [2.2.0] — 2026-07-31
+
+Freie Lizenz, ein fertiges Image — und der Feinschliff am Aussehen, den das
+Board seit Langem gebraucht hat.
+
+### Aussehen
+
+- **Keine leeren Rasterspuren mehr.** Die Feed-Spalten standen fest auf drei —
+  bei zwei Feeds blieb rechts eine leere. Jetzt richtet sich die Spaltenzahl nach
+  der Breite, mit einer Obergrenze je Spalte, damit sich zwei Feeds nicht über
+  den ganzen Bildschirm dehnen und die Zeilen zu lang werden. Dasselbe für die
+  Rubrik-Kacheln auf der Startseite.
+- **Schlagzeilen in Fraunces.** Die Anzeigeschrift stand bisher nur im
+  Zeitungskopf und in den Rubriknamen; die Artikeltitel liefen in der Grotesk
+  mit. Die Stufen für kleine und große Schrift liegen entsprechend höher, weil
+  Fraunces kleiner baut.
+- **Ruhigere Ungelesen-Marke.** Der rote Punkt war ein 14px-Kreis mit
+  2px-Ring, daneben stand die Zeitangabe ebenfalls in Akzentfarbe — achtmal je
+  Spalte untereinander ergab das einen roten Streifen, der lauter war als die
+  Schlagzeilen. Der Punkt ist nur noch halb so groß (das Klickziel bleibt), die
+  Zeitangabe ist grau.
+- **Gleichmäßiger Zeilenrhythmus.** Titel brechen ab Tablet-Breite nach zwei
+  Zeilen um. Auf dem Telefon nicht — dort steht ohnehin nur eine Spalte, und die
+  Begrenzung würde nur Überschriften abschneiden.
+- **Werkzeugleiste gruppiert.** Ein Trenner scheidet die Aktionen am Inhalt
+  (Ungelesen, Alle, Gespeichert, Aktualisieren) von denen am Programm
+  (Bearbeiten, Design, Einstellungen); Letztere treten farblich zurück.
+- **Kacheln zeigen die neueste Schlagzeile** statt nur Name und Feed-Zahl.
+- **Rubrik-Kacheln sind mit der Tastatur erreichbar.** Der Kachelkörper ist ein
+  `<button>` statt eines `<div>` mit Klick-Behandlung — vorher stand das
+  Klickziel nicht im Accessibility-Baum. Die ganze Kachel bleibt klickbar.
+
 ### Neu
 
 - **Fußzeile im Einstellungsfenster** mit Fassung, Lizenz und einem Link zum
@@ -16,7 +48,7 @@ Brüchen, die zweite bei neuen Funktionen, die dritte bei Korrekturen.
   nicht an zwei Stellen gepflegt werden muss.
 - **Fertiges Image aus der GitHub Container Registry.** Besteht der Smoke-Test,
   veröffentlicht die CI nach `ghcr.io/djrebrow/feedboard` — ein Push auf `main`
-  als `:main`, ein Fassungs-Tag als `:2.1.0`, `:2.1` und `:latest`, jeweils für
+  als `:main`, ein Fassungs-Tag als `:2.2.0`, `:2.2` und `:latest`, jeweils für
   `linux/amd64` und `linux/arm64`. Damit entfällt das Selbstbauen auf dem
   Raspberry Pi. Pull Requests bauen weiterhin nur.
 

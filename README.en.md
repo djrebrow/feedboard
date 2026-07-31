@@ -120,7 +120,7 @@ If you would rather not build it yourself, take the prebuilt image from the GitH
 docker run -d --name feedboard -p 8321:8321 -v ./data:/app/data --restart unless-stopped ghcr.io/djrebrow/feedboard:latest
 ```
 
-`:latest` is the most recent tagged release, `:2.1` and `:2.1.0` pin it, `:main` is the current development state.
+`:latest` is the most recent tagged release, `:2.2` and `:2.2.0` pin it, `:main` is the current development state.
 
 The database lives in the `./data` folder and survives container restarts and updates. The container reports its own health via `HEALTHCHECK` — `docker ps` shows it in the `STATUS` column.
 

@@ -120,7 +120,7 @@ Wer nicht selbst bauen will, nimmt das fertige Image aus der GitHub Container Re
 docker run -d --name feedboard -p 8321:8321 -v ./data:/app/data --restart unless-stopped ghcr.io/djrebrow/feedboard:latest
 ```
 
-`:latest` ist die jeweils letzte Fassung mit Tag, `:2.1` und `:2.1.0` nageln sie fest, `:main` ist der aktuelle Entwicklungsstand.
+`:latest` ist die jeweils letzte Fassung mit Tag, `:2.2` und `:2.2.0` nageln sie fest, `:main` ist der aktuelle Entwicklungsstand.
 
 Die Datenbank liegt im Ordner `./data` und überlebt Container-Neustarts und -Updates. Der Container meldet sich per `HEALTHCHECK` selbst als gesund oder krank — `docker ps` zeigt es in der Spalte `STATUS`.
 

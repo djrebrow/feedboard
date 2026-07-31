@@ -439,6 +439,20 @@ body.dialog-open { overflow: hidden; }
 .tool-btn.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .tool-btn-icon { padding: 8px 10px; }
 
+/* Programm-Aktionen (Bearbeiten, Design, Einstellungen) treten hinter die
+   Aktionen am Inhalt zurück: keine Umrandung, gedämpfte Farbe. Beim Überfahren
+   verhalten sie sich wie die übrigen Knöpfe. */
+.tool-btn-quiet { background: none; border-color: transparent; color: var(--faint); }
+.tool-btn-quiet:hover { border-color: var(--line-strong); }
+
+.tool-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 3px;
+  background: var(--line);
+  flex: none;
+}
+
 .icon { width: 16px; height: 16px; display: block; }
 
 /* Kleinere Abstufungen für Symbole in Knöpfen. Standen frueher als
@@ -550,7 +564,12 @@ html:not([data-theme='dark']) .icon-moon { display: none; }
   margin: 0 auto;
   padding: 22px 24px 60px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(370px, 1fr));
+  /* auto-fit statt auto-fill: bei zwei Rubriken bleibt sonst eine leere Spur
+     stehen und rechts klafft ein Loch. auto-fit faltet leere Spuren zusammen.
+     Die Obergrenze hält die Kacheln dabei in Form — ohne sie zöge eine einzelne
+     Rubrik ihre Kachel über die volle Breite. */
+  grid-template-columns: repeat(auto-fit, minmax(min(370px, 100%), 480px));
+  justify-content: center;
   gap: 20px;
   align-items: start;
 }
@@ -592,6 +611,8 @@ html:not([data-theme='dark']) .icon-moon { display: none; }
   box-shadow: var(--shadow-hover);
 }
 
+/* Seit dem Umbau ein <button>: das Klickziel muss mit der Tastatur erreichbar
+   sein. Deshalb hier die übliche Zurücksetzung der Knopf-Eigenschaften. */
 .category-tile-body {
   display: flex;
   flex-direction: column;
@@ -600,6 +621,43 @@ html:not([data-theme='dark']) .icon-moon { display: none; }
   text-align: center;
   gap: 10px;
   flex: 1;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.category-tile-body:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 6px;
+  border-radius: 6px;
+}
+
+/* Der Knopf füllt nur den Inhaltsbereich, klickbar war früher aber die ganze
+   Kachel samt Polsterung. Diese Fläche legt das Klickziel wieder über die
+   gesamte Kachel, ohne die Werkzeuge darin zu verdecken. */
+.category-tile-body::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.category-tile .category-tools { z-index: 1; }
+
+/* Jüngste Schlagzeile der Rubrik — gibt der Kachel einen Inhalt statt nur
+   Name und Feed-Zahl. */
+.category-tile-latest {
+  font-size: 12.5px;
+  line-height: 1.42;
+  color: var(--muted);
+  max-width: 36ch;
+  margin-top: -2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .category-logo {
@@ -713,7 +771,16 @@ body.edit-mode .category-tile.editing:hover { transform: none; box-shadow: var(-
 
 .feeds-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Feste drei Spalten hinterließen bei zwei Feeds eine leere dritte. auto-fit
+     nimmt so viele Spalten, wie bei 340 px Mindestbreite hineinpassen, und
+     verteilt sie auf die vorhandenen Feeds — die Umbrüche ergeben sich damit von
+     selbst, die Media Queries dafür sind weggefallen. Die Obergrenze von 620 px
+     verhindert dabei das Gegenteil: bei nur zwei Feeds würden sich die Spalten
+     sonst über die volle Breite dehnen und die Zeilen zu lang werden. */
+  /* min(340px, 100%) statt 340px: auf einem schmalen Telefon wäre die Spalte
+     sonst breiter als der Bildschirm und die Seite liefe seitlich über. */
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 620px));
+  justify-content: center;
   gap: 18px;
   padding: 20px 0;
   align-items: start;
@@ -725,14 +792,6 @@ body.edit-mode .category-tile.editing:hover { transform: none; box-shadow: var(-
   background: var(--surface);
   box-shadow: var(--shadow);
   overflow: hidden;
-}
-
-@media (max-width: 1100px) {
-  .feeds-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 700px) {
-  .feeds-grid { grid-template-columns: 1fr; }
 }
 
 /* ---- Zurück-Button in der Detailansicht ---- */
@@ -902,14 +961,33 @@ body.edit-mode .feed-tools { display: flex; }
   width: 58px;
 }
 
-.article-fresh .article-time { color: var(--accent); font-weight: 600; }
+/* Frische Artikel standen in Akzentfarbe und fett — zusammen mit der roten
+   Ungelesen-Marke direkt daneben waren das zwei laute Elemente vor jeder
+   Schlagzeile. Jetzt nur noch eine leichte Hervorhebung in Grau. */
+.article-fresh .article-time { color: var(--muted); font-weight: 600; }
 
 .article-title {
-  font-size: 14px;
-  line-height: 1.4;
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1.32;
+  font-weight: 600;
+  letter-spacing: -0.005em;
   color: var(--ink);
   text-decoration: none;
   overflow-wrap: anywhere;
+}
+
+/* Auf zwei Zeilen begrenzt: vorher liefen Titel über eine bis drei Zeilen und
+   der Zeilenrhythmus der Spalte wurde unruhig. Erst ab Tablet-Breite — auf dem
+   Telefon steht ohnehin nur eine Spalte, dort gibt es keinen Rhythmus zu retten
+   und die Begrenzung würde nur Überschriften abschneiden. */
+@media (min-width: 700px) {
+  .article-title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 }
 
 .article-title:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
@@ -1167,21 +1245,35 @@ body.edit-mode .feed-add { display: block; }
 body.edit-mode .tile-badge { display: none; }
 
 /* ---- Lese-Status pro Artikel ---- */
+/* Die Marke war ein 14px-Kreis mit 2px-Ring in Akzentfarbe — achtmal je Spalte
+   untereinander ergab das einen roten Streifen, der lauter war als die
+   Schlagzeilen. Der Knopf behält seine Größe als Klickziel, der sichtbare Punkt
+   darin ist nur noch halb so groß. */
 .article-read {
+  position: relative;
   flex-shrink: 0;
   width: 14px;
   height: 14px;
   margin-right: 2px;
-  border: 2px solid var(--line-strong);
-  border-radius: 50%;
-  background: var(--accent);
+  border: none;
+  background: none;
   padding: 0;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
-.article-read:hover { transform: scale(1.15); border-color: var(--accent); }
-.article-read-done .article-read { background: transparent; border-color: var(--line-strong); }
-.article-read-done .article-title { color: var(--faint); font-weight: 400; }
+.article-read::before {
+  content: '';
+  position: absolute;
+  inset: 3.5px;
+  border-radius: 50%;
+  background: var(--accent);
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+.article-read:hover::before { transform: scale(1.3); }
+.article-read-done .article-read::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.article-read-done .article-title { color: var(--faint); font-weight: 500; }
 .article-read-done .article-time { opacity: 0.6; }
 
 .feed-mark-read, .category-mark-read { color: var(--faint); }
@@ -1222,7 +1314,9 @@ body.edit-mode .tile-badge { display: none; }
   letter-spacing: 0.03em;
   margin-bottom: 3px;
 }
-.search-result .article-title { font-size: 15px; }
+/* In der Suche steht je Treffer nur eine Zeile — dort darf der Titel voll
+   ausgeschrieben bleiben statt nach zwei Zeilen abzubrechen. */
+.search-result .article-title { font-size: 16px; -webkit-line-clamp: 3; }
 .search-result-summary {
   margin-top: 5px;
   font-size: 13px;
@@ -1327,11 +1421,13 @@ body.density-compact .article-summary { margin-top: 1px; margin-bottom: 5px; }
 body.density-compact .search-result { padding: 8px 12px; }
 
 /* Schriftgröße */
-body.font-small .article-title { font-size: 12.5px; }
+/* Fraunces baut kleiner als die Grotesk, deshalb liegen die Stufen seit der
+   Umstellung der Schlagzeilen jeweils einen Punkt höher als vorher. */
+body.font-small .article-title { font-size: 13.5px; }
 body.font-small .article-summary { font-size: 12px; }
-body.font-large .article-title { font-size: 16px; }
+body.font-large .article-title { font-size: 17px; }
 body.font-large .article-summary { font-size: 14.5px; }
-body.font-large .search-result .article-title { font-size: 16.5px; }
+body.font-large .search-result .article-title { font-size: 17.5px; }
 
 /* ==========================================================================
    Nachgeladener Text (Volltext/KI), Aktionen, Tastaturauswahl, Pause

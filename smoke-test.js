@@ -168,9 +168,19 @@ async function run() {
   check('Keine JS-Fehler beim Init', errors.length === 0);
   check('Rubrik-Kachel auf der Startseite', !!doc.querySelector('.category-tile[data-category-id="1"]'));
   check('XSS im Rubriknamen escaped', !doc.querySelector('.category-tile-name script') && doc.querySelector('.category-tile-name').textContent.includes('<script>'));
+  // Der Kachelkörper ist ein <button>, sonst wäre das Klickziel mit der
+  // Tastatur nicht erreichbar und stünde nicht im Accessibility-Baum.
+  check('Kachel ist ein Knopf, nicht nur ein div',
+    doc.querySelector('.category-tile[data-category-id="1"] .category-tile-body').tagName === 'BUTTON');
+  // Artikel 9 trägt im Bestand den jüngsten Zeitstempel (published_at 08:00).
+  const juengste = doc.querySelector('.category-tile[data-category-id="1"] .category-tile-latest');
+  check('Kachel zeigt die neueste Schlagzeile',
+    !!juengste && juengste.textContent.startsWith('Artikel 9 '));
+  check('Schlagzeile auf der Kachel ist escaped',
+    !!juengste && !juengste.querySelector('b') && juengste.textContent.includes('<b>'));
 
   // In die Rubrik wechseln — Feeds und Artikel gibt es nur in der Detailansicht
-  doc.querySelector('.category-tile[data-category-id="1"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  doc.querySelector('.category-tile[data-category-id="1"] .category-tile-body').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 30));
 
   check('Rubrik-Detailansicht geöffnet', !!doc.querySelector('.category-open[data-category-id="1"]'));
